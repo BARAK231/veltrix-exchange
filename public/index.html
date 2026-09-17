@@ -1,1 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VELTRIX EXCHANGE</title>
 
+<style>
+*{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+
+body{
+  font-family:Arial,Helvetica,sans-serif;
+  background:#080b12;
+  color:#f5f7fb;
+}
+
+header{
+  height:70px;
+  border-bottom:1px solid #202633;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 28px;
+  background:#0c1018;
+  position:sticky;
+  top:0;
+  z-index:10;
+}
+
+.logo{
+  font-size:23px;
+  font-weight:900;
+  letter-spacing:2px;
+}
+
+.logo span{
+  color:#21e6a0;
+}
+
+.badge{
+  border:1px solid #21e6a0;
+  color:#21e6a0;
+  padding:7px 12px;
+  border-radius:20px;
+  font-size:12px;
+}
+
+.container{
+  max-width:1400px;
+  margin:auto;
+  padding:28px;
+}
+
+.hero{
+  padding:35px 0;
+}
+
+.hero h1{
+  font-size:42px;
+  margin-bottom:12px;
+}
+
+.hero p{
+  color:#8f99aa;
+  max-width:650px;
+  line-height:1.7;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:2fr 1fr;
+  gap:20px;
+}
+
+.card{
+  background:#0e131c;
+  border:1px solid #202735;
+  border-radius:16px;
+  padding:20px;
+  margin-bottom:20px;
+}
+
+.card h2{
+  font-size:17px;
+  margin-bottom:18px;
+}
+
+.market{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.price{
+  font-size:32px;
+  font-weight:800;
+}
+
+.green{
+  color:#21e6a0;
+}
+
+.muted{
+  color:#7f8999;
+}
+
+.chart{
+  height:280px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:
+    linear-gradient(180deg,transparent,#0b1119),
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 44px,
+      #18202d 45px
+    );
+  border-radius:12px;
+  color:#21e6a0;
+  margin-top:20px;
+  position:relative;
+  overflow:hidden;
+}
+
+.chart svg{
+  width:100%;
+  height:100%;
+}
+
+.book-row{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  padding:8px 0;
+  font-size:13px;
+}
+
+.book-row.header{
+  color:#737e8f;
+  border-bottom:1px solid #202735;
+}
+
+.panel{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+
+input{
+  width:100%;
+  padding:13px;
+  background:#080c13;
+  border:1px solid #283142;
+  border-radius:9px;
+  color:white;
+  outline:none;
+  margin-bottom:10px;
+}
+
+button{
+  width:100%;
+  border:0;
+  padding:13px;
+  border-radius:9px;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+.primary{
+  background:#21e6a0;
+  color:#04110c;
+}
+
+.secondary{
+  background:#18202c;
+  color:#fff;
+}
+
+.auth{
+  max-width:430px;
+  margin:30px auto;
+}
+
+.balance{
+  display:flex;
+  justify-content:space-between;
+  padding:15px 0;
+  border-bottom:1px solid #202735;
+}
+
+.notice{
+  padding:14px;
+  background:#101a19;
+  border:1px solid #1c5544;
+  border-radius:10px;
+  color:#9cebd2;
+  line-height:1.6;
+}
+
+footer{
+  border-top:1px solid #202633;
+  margin-top:40px;
+  padding:25px;
+  text-align:center;
+  color:#657082;
+}
+
+@media(max-width:900px){
+  .grid{
+    grid-template-columns:1fr;
+  }
+
+  .hero h1{
+    font-size:32px;
+  }
+
+  header{
+    padding:0 15px;
+  }
+
+  .container{
+    padding:18px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="logo">VELTRIX <span>EXCHANGE</span></div>
+  <div class="badge">VLX • PLANNED</div>
+</header>
+
+<main class="container">
+
+<section class="hero">
+  <h1>Next Generation Crypto Exchange</h1>
+  <p>
+    Trade, manage and track digital assets through the VELTRIX ecosystem.
+    VLX is currently planned for the future exchange listing.
+  </p>
+</section>
+
+<div class="notice">
+  <b>VLX Listing Plan:</b>
+  <span id="listingDate">17 November 2026</span>.
+  Until the blockchain and custody infrastructure are deployed,
+  mining credits remain internal account balances and are not blockchain deposits.
+</div>
+
+<br>
+
+<div class="grid">
+
+<div>
+
+<div class="card">
+
+<div class="market">
+  <div>
+    <div class="muted">VLX / USDT</div>
+    <div class="price">$0.0000</div>
+  </div>
+
+  <div class="green">PLANNED</div>
+</div>
+
+<div class="chart">
+
+<svg viewBox="0 0 900 280" preserveAspectRatio="none">
+
+<polyline
+fill="none"
+stroke="currentColor"
+stroke-width="4"
+points="
+0,220
+70,205
+130,225
+200,170
+270,185
+340,130
+420,150
+490,105
+560,135
+630,80
+700,105
+770,60
+850,85
+900,45
+"/>
+
+</svg>
+
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>Order Book</h2>
+
+<div class="book-row header">
+<div>Price</div>
+<div>Amount</div>
+<div>Total</div>
+</div>
+
+<div class="book-row">
+<div class="green">0.0000</div>
+<div>0 VLX</div>
+<div>0 USDT</div>
+</div>
+
+<div class="book-row">
+<div class="green">0.0000</div>
+<div>0 VLX</div>
+<div>0 USDT</div>
+</div>
+
+<div class="book-row">
+<div class="green">0.0000</div>
+<div>0 VLX</div>
+<div>0 USDT</div>
+</div>
+
+<hr style="border:0;border-top:1px solid #202735;margin:10px 0">
+
+<div class="book-row">
+<div style="color:#ff6577">0.0000</div>
+<div>0 VLX</div>
+<div>0 USDT</div>
+</div>
+
+<div class="book-row">
+<div style="color:#ff6577">0.0000</div>
+<div>0 VLX</div>
+<div>0 USDT</div>
+</div>
+
+</div>
+
+</div>
+
+<div>
+
+<div class="card">
+
+<h2>Account</h2>
+
+<div id="account">
+
+<div class="muted">
+You are not logged in.
+</div>
+
+<br>
+
+<input id="email" placeholder="Email">
+
+<input id="password" type="password" placeholder="Password">
+
+<input id="displayName" placeholder="Display name">
+
+<div class="panel">
+<button class="primary" onclick="registerUser()">Register</button>
+<button class="secondary" onclick="loginUser()">Login</button>
+</div>
+
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>Wallet</h2>
+
+<div id="wallet">
+
+<div class="balance">
+<span>USDT</span>
+<strong>0</strong>
+</div>
+
+<div class="balance">
+<span>VLX</span>
+<strong>0</strong>
+</div>
+
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>Security</h2>
+
+<div class="muted" style="line-height:1.8">
+✓ Password hashing<br>
+✓ Secure sessions<br>
+✓ API rate limiting<br>
+✓ Audit logging<br>
+✓ Telegram request signing
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</main>
+
+<footer>
+VELTRIX EXCHANGE © 2026
+</footer>
+
+<script>
+
+async function api(url, options = {}) {
+
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type":"application/json",
+      ...(options.headers || {})
+    }
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.error || "Request failed");
+  }
+
+  return data;
+}
+
+async function registerUser(){
+
+  try{
+
+    const data = await api("/api/auth/register",{
+      method:"POST",
+      body:JSON.stringify({
+        email:document.getElementById("email").value,
+        password:document.getElementById("password").value,
+        displayName:document.getElementById("displayName").value
+      })
+    });
+
+    alert(data.message);
+
+  }catch(error){
+    alert(error.message);
+  }
+}
+
+async function loginUser(){
+
+  try{
+
+    const data = await api("/api/auth/login",{
+      method:"POST",
+      body:JSON.stringify({
+        email:document.getElementById("email").value,
+        password:document.getElementById("password").value
+      })
+    });
+
+    alert("Welcome " + data.user.displayName);
+
+    loadAccount();
+
+  }catch(error){
+    alert(error.message);
+  }
+}
+
+async function loadAccount(){
+
+  try{
+
+    const me = await api("/api/auth/me");
+
+    document.getElementById("account").innerHTML = `
+      <div class="balance">
+        <span>User</span>
+        <strong>${escapeHtml(me.user.display_name || me.user.displayName)}</strong>
+      </div>
+
+      <div class="balance">
+        <span>KYC</span>
+        <strong>${escapeHtml(me.user.kyc_status || "pending")}</strong>
+      </div>
+
+      <br>
+
+      <button class="secondary" onclick="logoutUser()">Logout</button>
+    `;
+
+    const balances = await api("/api/balances");
+
+    const wallet = document.getElementById("wallet");
+
+    wallet.innerHTML = "";
+
+    balances.forEach(item => {
+
+      wallet.innerHTML += `
+        <div class="balance">
+          <span>${escapeHtml(item.symbol)}</span>
+          <strong>${escapeHtml(String(item.available))}</strong>
+        </div>
+      `;
+
+    });
+
+  }catch(error){
+
+    console.log("Not logged in");
+
+  }
+}
+
+async function logoutUser(){
+
+  try{
+
+    await api("/api/auth/logout",{
+      method:"POST"
+    });
+
+    location.reload();
+
+  }catch(error){
+
+    alert(error.message);
+
+  }
+}
+
+function escapeHtml(value){
+
+  return String(value)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+loadAccount();
+
+</script>
+
+</body>
+</html>
