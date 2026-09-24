@@ -2,562 +2,930 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>VELTRIX EXCHANGE</title>
 
 <style>
-*{
-  box-sizing:border-box;
-  margin:0;
-  padding:0;
-}
-
+*{box-sizing:border-box;margin:0;padding:0}
 body{
   font-family:Arial,Helvetica,sans-serif;
-  background:#080b12;
-  color:#f5f7fb;
+  background:#070b14;
+  color:#fff;
+}
+button,input,select{font:inherit}
+button{cursor:pointer}
+
+.app{
+  min-height:100vh;
+  display:flex;
 }
 
-header{
-  height:70px;
-  border-bottom:1px solid #202633;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:0 28px;
-  background:#0c1018;
-  position:sticky;
+.sidebar{
+  width:230px;
+  background:#0b111d;
+  border-right:1px solid #1c2638;
+  padding:22px 14px;
+  position:fixed;
   top:0;
-  z-index:10;
+  bottom:0;
 }
 
 .logo{
-  font-size:23px;
-  font-weight:900;
+  font-size:25px;
+  font-weight:800;
   letter-spacing:2px;
+  color:#fff;
+}
+.logo span{color:#27a9ff}
+.sub{
+  color:#74819a;
+  font-size:10px;
+  letter-spacing:3px;
+  margin-top:3px;
 }
 
-.logo span{
-  color:#21e6a0;
-}
-
-.badge{
-  border:1px solid #21e6a0;
-  color:#21e6a0;
-  padding:7px 12px;
-  border-radius:20px;
+.status{
+  margin:20px 0;
+  background:#101a29;
+  border:1px solid #1d3048;
+  border-radius:10px;
+  padding:10px;
   font-size:12px;
 }
-
-.container{
-  max-width:1400px;
-  margin:auto;
-  padding:28px;
+.dot{
+  display:inline-block;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#20d879;
+  margin-right:7px;
 }
 
-.hero{
-  padding:35px 0;
+.nav{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.nav button{
+  background:none;
+  border:0;
+  color:#8491a8;
+  text-align:left;
+  padding:13px 14px;
+  border-radius:9px;
+}
+.nav button:hover,
+.nav button.active{
+  background:#12243a;
+  color:#35adff;
 }
 
-.hero h1{
-  font-size:42px;
-  margin-bottom:12px;
-}
-
-.hero p{
-  color:#8f99aa;
-  max-width:650px;
-  line-height:1.7;
-}
-
-.grid{
-  display:grid;
-  grid-template-columns:2fr 1fr;
-  gap:20px;
-}
-
-.card{
-  background:#0e131c;
-  border:1px solid #202735;
-  border-radius:16px;
+.main{
+  margin-left:230px;
+  width:calc(100% - 230px);
   padding:20px;
-  margin-bottom:20px;
 }
 
-.card h2{
-  font-size:17px;
+.top{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
   margin-bottom:18px;
 }
 
+.badge{
+  padding:7px 12px;
+  border-radius:20px;
+  background:#10271e;
+  color:#32dc8b;
+  border:1px solid #1b6647;
+  font-size:12px;
+}
+
+.user-area{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.user-circle{
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  background:#173d62;
+  display:grid;
+  place-items:center;
+}
+
+.hero{
+  background:linear-gradient(120deg,#0e1728,#0b1b2c,#10172a);
+  border:1px solid #1d3046;
+  border-radius:16px;
+  padding:25px;
+  display:flex;
+  justify-content:space-between;
+  gap:20px;
+  margin-bottom:18px;
+}
+
+.hero h1{
+  font-size:30px;
+  margin:10px 0;
+}
+.hero p{
+  color:#8390a5;
+}
+.hero strong{color:#29aaff}
+
+.countdown{
+  min-width:310px;
+  background:#08111e;
+  border:1px solid #23415d;
+  border-radius:13px;
+  padding:18px;
+  text-align:center;
+}
+.countdown-title{
+  color:#7e8da4;
+  font-size:12px;
+  margin-bottom:8px;
+}
+.timer{
+  font-size:24px;
+  font-weight:800;
+  color:#31b5ff;
+}
+.list-date{
+  color:#8d9aae;
+  font-size:11px;
+  margin-top:8px;
+}
+
+.markets{
+  display:flex;
+  gap:8px;
+  overflow:auto;
+  margin-bottom:18px;
+}
 .market{
+  min-width:125px;
+  background:#0c1421;
+  border:1px solid #1b2a3e;
+  padding:12px;
+  border-radius:10px;
+  cursor:pointer;
+}
+.market:hover,
+.market.active{
+  border-color:#249ee8;
+  background:#102136;
+}
+.market b{display:block}
+.market small{color:#738097}
+
+.grid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 330px;
+  gap:16px;
+}
+
+.card{
+  background:#0b121e;
+  border:1px solid #1b293b;
+  border-radius:13px;
+  overflow:hidden;
+}
+
+.card-head{
+  padding:14px 16px;
+  border-bottom:1px solid #192638;
   display:flex;
   justify-content:space-between;
   align-items:center;
 }
 
+.pair{
+  font-weight:800;
+  font-size:18px;
+}
 .price{
-  font-size:32px;
+  color:#32dc8b;
+  font-size:24px;
   font-weight:800;
 }
 
-.green{
-  color:#21e6a0;
-}
-
-.muted{
-  color:#7f8999;
-}
-
 .chart{
-  height:280px;
+  height:350px;
   display:flex;
   align-items:center;
   justify-content:center;
   background:
-    linear-gradient(180deg,transparent,#0b1119),
-    repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 44px,
-      #18202d 45px
-    );
-  border-radius:12px;
-  color:#21e6a0;
-  margin-top:20px;
+    linear-gradient(rgba(40,70,100,.12) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(40,70,100,.12) 1px,transparent 1px);
+  background-size:45px 45px;
+  color:#52627a;
   position:relative;
-  overflow:hidden;
+}
+.chart:after{
+  content:"VLX/USDT • LIVE MARKET";
+  position:absolute;
+  top:15px;
+  left:16px;
+  color:#65748a;
+  font-size:11px;
 }
 
-.chart svg{
+.chart-line{
+  width:75%;
+  height:150px;
+  border-bottom:2px solid #20a8ff;
+  border-radius:50%;
+  transform:rotate(-7deg);
+  opacity:.8;
+}
+
+.orderbox{
+  padding:16px;
+}
+.tabs{
+  display:flex;
+  gap:5px;
+  margin-bottom:12px;
+}
+.tabs button{
+  flex:1;
+  border:1px solid #203047;
+  background:#0d1725;
+  color:#8290a5;
+  padding:9px;
+  border-radius:7px;
+}
+.tabs button.active{
+  color:#fff;
+  background:#153553;
+}
+
+.form{
+  display:grid;
+  gap:10px;
+}
+.field{
+  background:#080f1a;
+  border:1px solid #1b2a3e;
+  border-radius:7px;
+  padding:10px;
+}
+.field label{
+  display:block;
+  color:#66758c;
+  font-size:10px;
+  margin-bottom:5px;
+}
+.field input{
   width:100%;
-  height:100%;
+  border:0;
+  outline:0;
+  background:transparent;
+  color:#fff;
+}
+.buy{
+  background:#168b59;
+  color:#fff;
+  border:0;
+  padding:12px;
+  border-radius:8px;
+  font-weight:bold;
+}
+.sell{
+  background:#a83e51;
+  color:#fff;
+  border:0;
+  padding:12px;
+  border-radius:8px;
+  font-weight:bold;
 }
 
 .book-row{
   display:grid;
   grid-template-columns:1fr 1fr 1fr;
-  padding:8px 0;
-  font-size:13px;
+  padding:6px 15px;
+  font-size:12px;
+  color:#8795a9;
 }
+.book-head{color:#58677e;font-size:10px}
+.ask{color:#ef6575}
+.bid{color:#36d894}
 
-.book-row.header{
-  color:#737e8f;
-  border-bottom:1px solid #202735;
-}
-
-.panel{
+.balance-grid{
+  margin-top:16px;
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:repeat(4,1fr);
   gap:12px;
 }
+.balance{
+  background:#0b121e;
+  border:1px solid #1b293b;
+  padding:16px;
+  border-radius:12px;
+}
+.balance small{color:#728097}
+.balance b{
+  display:block;
+  margin-top:8px;
+  font-size:18px;
+}
 
-input{
+.login{
+  position:fixed;
+  inset:0;
+  background:rgba(2,5,10,.94);
+  display:none;
+  place-items:center;
+  z-index:20;
+}
+.login.show{display:grid}
+.login-box{
+  width:min(420px,92%);
+  background:#0c1421;
+  border:1px solid #263b55;
+  border-radius:15px;
+  padding:25px;
+}
+.login-box h2{margin-bottom:18px}
+.login-box input{
   width:100%;
   padding:13px;
-  background:#080c13;
-  border:1px solid #283142;
-  border-radius:9px;
-  color:white;
+  margin-bottom:10px;
+  border-radius:8px;
+  border:1px solid #25374e;
+  background:#07101b;
+  color:#fff;
   outline:none;
+}
+.login-box button{
+  width:100%;
+  padding:13px;
+  background:#168ed0;
+  border:0;
+  color:#fff;
+  border-radius:8px;
+  font-weight:bold;
+}
+.switch{
+  color:#48b8ff;
+  text-align:center;
+  margin-top:14px;
+  cursor:pointer;
+  font-size:13px;
+}
+.message{
+  color:#ff7181;
+  font-size:12px;
   margin-bottom:10px;
 }
 
-button{
-  width:100%;
-  border:0;
-  padding:13px;
-  border-radius:9px;
-  font-weight:bold;
-  cursor:pointer;
-}
-
-.primary{
-  background:#21e6a0;
-  color:#04110c;
-}
-
-.secondary{
-  background:#18202c;
-  color:#fff;
-}
-
-.auth{
-  max-width:430px;
-  margin:30px auto;
-}
-
-.balance{
-  display:flex;
-  justify-content:space-between;
-  padding:15px 0;
-  border-bottom:1px solid #202735;
-}
-
-.notice{
-  padding:14px;
-  background:#101a19;
-  border:1px solid #1c5544;
-  border-radius:10px;
-  color:#9cebd2;
-  line-height:1.6;
-}
-
-footer{
-  border-top:1px solid #202633;
-  margin-top:40px;
-  padding:25px;
-  text-align:center;
-  color:#657082;
-}
-
 @media(max-width:900px){
-  .grid{
-    grid-template-columns:1fr;
+  .sidebar{
+    width:70px;
+    padding:15px 8px;
   }
+  .logo,.sub,.status span,.nav button span{display:none}
+  .nav button{text-align:center}
+  .main{
+    margin-left:70px;
+    width:calc(100% - 70px);
+  }
+  .grid{grid-template-columns:1fr}
+  .hero{flex-direction:column}
+  .countdown{min-width:0}
+  .balance-grid{grid-template-columns:repeat(2,1fr)}
+}
 
-  .hero h1{
-    font-size:32px;
-  }
-
-  header{
-    padding:0 15px;
-  }
-
-  .container{
-    padding:18px;
-  }
+@media(max-width:600px){
+  .main{padding:10px}
+  .hero h1{font-size:22px}
+  .timer{font-size:18px}
+  .chart{height:270px}
+  .balance-grid{grid-template-columns:1fr 1fr}
 }
 </style>
 </head>
 
 <body>
 
-<header>
-  <div class="logo">VELTRIX <span>EXCHANGE</span></div>
-  <div class="badge">VLX • PLANNED</div>
-</header>
+<div class="app">
 
-<main class="container">
+<aside class="sidebar">
+  <div class="logo">VELTRIX</div>
+  <div class="sub">EXCHANGE</div>
 
-<section class="hero">
-  <h1>Next Generation Crypto Exchange</h1>
-  <p>
-    Trade, manage and track digital assets through the VELTRIX ecosystem.
-    VLX is currently planned for the future exchange listing.
-  </p>
-</section>
-
-<div class="notice">
-  <b>VLX Listing Plan:</b>
-  <span id="listingDate">17 November 2026</span>.
-  Until the blockchain and custody infrastructure are deployed,
-  mining credits remain internal account balances and are not blockchain deposits.
-</div>
-
-<br>
-
-<div class="grid">
-
-<div>
-
-<div class="card">
-
-<div class="market">
-  <div>
-    <div class="muted">VLX / USDT</div>
-    <div class="price">$0.0000</div>
+  <div class="status">
+    <span class="dot"></span>
+    <span>Exchange Online</span>
   </div>
 
-  <div class="green">PLANNED</div>
-</div>
+  <div class="nav">
+    <button class="active">▣ <span>Dashboard</span></button>
+    <button>▥ <span>Trade</span></button>
+    <button>◈ <span>Markets</span></button>
+    <button>▣ <span>Wallet</span></button>
+    <button>◆ <span>VLX</span></button>
+    <button>◉ <span>History</span></button>
+    <button>⚙ <span>Settings</span></button>
+  </div>
+</aside>
 
-<div class="chart">
+<main class="main">
 
-<svg viewBox="0 0 900 280" preserveAspectRatio="none">
+  <div class="top">
+    <div>
+      <b>VELTRIX EXCHANGE</b>
+      <div style="color:#64738a;font-size:11px">
+        Digital Asset Trading Platform
+      </div>
+    </div>
 
-<polyline
-fill="none"
-stroke="currentColor"
-stroke-width="4"
-points="
-0,220
-70,205
-130,225
-200,170
-270,185
-340,130
-420,150
-490,105
-560,135
-630,80
-700,105
-770,60
-850,85
-900,45
-"/>
+    <div class="user-area">
+      <span class="badge">● LIVE SYSTEM</span>
+      <div class="user-circle">U</div>
+    </div>
+  </div>
 
-</svg>
+  <section class="hero">
 
-</div>
+    <div>
+      <div style="color:#29aaff;font-size:12px">
+        NEXT GENERATION CRYPTO EXCHANGE
+      </div>
 
-</div>
+      <h1>Trade the <strong>VELTRIX</strong> Ecosystem</h1>
 
-<div class="card">
+      <p>
+        Spot trading • Markets • Wallet • VLX
+      </p>
 
-<h2>Order Book</h2>
+      <div style="margin-top:18px;color:#7c899d;font-size:12px">
+        BTC • ETH • SOL • XRP • TON • SHIB • VLX
+      </div>
+    </div>
 
-<div class="book-row header">
-<div>Price</div>
-<div>Amount</div>
-<div>Total</div>
-</div>
+    <div class="countdown">
+      <div class="countdown-title">
+        VLX OFFICIAL LISTING COUNTDOWN
+      </div>
 
-<div class="book-row">
-<div class="green">0.0000</div>
-<div>0 VLX</div>
-<div>0 USDT</div>
-</div>
+      <div id="timer" class="timer">
+        Loading...
+      </div>
 
-<div class="book-row">
-<div class="green">0.0000</div>
-<div>0 VLX</div>
-<div>0 USDT</div>
-</div>
+      <div class="list-date">
+        24 November 2026 • 00:00 UTC
+      </div>
+    </div>
 
-<div class="book-row">
-<div class="green">0.0000</div>
-<div>0 VLX</div>
-<div>0 USDT</div>
-</div>
+  </section>
 
-<hr style="border:0;border-top:1px solid #202735;margin:10px 0">
+  <div id="markets" class="markets"></div>
 
-<div class="book-row">
-<div style="color:#ff6577">0.0000</div>
-<div>0 VLX</div>
-<div>0 USDT</div>
-</div>
+  <section class="grid">
 
-<div class="book-row">
-<div style="color:#ff6577">0.0000</div>
-<div>0 VLX</div>
-<div>0 USDT</div>
-</div>
+    <div>
 
-</div>
+      <div class="card">
 
-</div>
+        <div class="card-head">
+          <div>
+            <div id="pair" class="pair">BTC/USDT</div>
+            <div style="color:#65738a;font-size:11px">
+              Spot Market
+            </div>
+          </div>
 
-<div>
+          <div id="marketPrice" class="price">
+            --
+          </div>
+        </div>
 
-<div class="card">
+        <div class="chart">
+          <div class="chart-line"></div>
+        </div>
 
-<h2>Account</h2>
+      </div>
 
-<div id="account">
+      <div class="balance-grid" id="balances"></div>
 
-<div class="muted">
-You are not logged in.
-</div>
+    </div>
 
-<br>
+    <div>
 
-<input id="email" placeholder="Email">
+      <div class="card">
 
-<input id="password" type="password" placeholder="Password">
+        <div class="card-head">
+          <b>ORDER BOOK</b>
+          <span style="color:#617088;font-size:11px">
+            Live
+          </span>
+        </div>
 
-<input id="displayName" placeholder="Display name">
+        <div class="book-row book-head">
+          <span>PRICE</span>
+          <span>AMOUNT</span>
+          <span>TOTAL</span>
+        </div>
 
-<div class="panel">
-<button class="primary" onclick="registerUser()">Register</button>
-<button class="secondary" onclick="loginUser()">Login</button>
-</div>
+        <div id="asks"></div>
 
-</div>
+        <div style="
+          padding:12px 15px;
+          color:#32dc8b;
+          font-weight:bold;
+          border-top:1px solid #182638;
+          border-bottom:1px solid #182638;
+        ">
+          Market
+        </div>
 
-</div>
+        <div id="bids"></div>
 
-<div class="card">
+      </div>
 
-<h2>Wallet</h2>
+      <div class="card" style="margin-top:16px">
 
-<div id="wallet">
+        <div class="card-head">
+          <b>PLACE ORDER</b>
+        </div>
 
-<div class="balance">
-<span>USDT</span>
-<strong>0</strong>
-</div>
+        <div class="orderbox">
 
-<div class="balance">
-<span>VLX</span>
-<strong>0</strong>
-</div>
+          <div class="tabs">
+            <button id="buyTab" class="active"
+              onclick="setSide('buy')">BUY</button>
+            <button id="sellTab"
+              onclick="setSide('sell')">SELL</button>
+          </div>
 
-</div>
+          <div class="form">
 
-</div>
+            <div class="field">
+              <label>PRICE (USDT)</label>
+              <input id="price" type="number"
+                step="any" placeholder="0.00">
+            </div>
 
-<div class="card">
+            <div class="field">
+              <label>QUANTITY</label>
+              <input id="quantity" type="number"
+                step="any" placeholder="0.00">
+            </div>
 
-<h2>Security</h2>
+            <button id="orderBtn"
+              class="buy"
+              onclick="placeOrder()">
+              BUY
+            </button>
 
-<div class="muted" style="line-height:1.8">
-✓ Password hashing<br>
-✓ Secure sessions<br>
-✓ API rate limiting<br>
-✓ Audit logging<br>
-✓ Telegram request signing
-</div>
+          </div>
 
-</div>
+          <div id="orderMessage"
+            style="margin-top:10px;color:#77869c;font-size:11px">
+          </div>
 
-</div>
+        </div>
+      </div>
 
-</div>
+    </div>
+
+  </section>
 
 </main>
+</div>
 
-<footer>
-VELTRIX EXCHANGE © 2026
-</footer>
+<div id="login" class="login show">
+
+  <div class="login-box">
+
+    <h2 id="loginTitle">VELTRIX Login</h2>
+
+    <div id="loginMessage" class="message"></div>
+
+    <input id="displayName"
+      placeholder="Display Name"
+      style="display:none">
+
+    <input id="email"
+      type="email"
+      placeholder="Email">
+
+    <input id="password"
+      type="password"
+      placeholder="Password">
+
+    <button onclick="submitAuth()">
+      <span id="authButton">LOGIN</span>
+    </button>
+
+    <div class="switch"
+      onclick="toggleAuth()"
+      id="switchText">
+      Create a new account
+    </div>
+
+  </div>
+
+</div>
 
 <script>
+let authMode = "login";
+let side = "buy";
+let currentPair = "BTC/USDT";
 
-async function api(url, options = {}) {
+const pairs = [
+  "BTC/USDT",
+  "ETH/USDT",
+  "SOL/USDT",
+  "XRP/USDT",
+  "TON/USDT",
+  "SHIB/USDT",
+  "VLX/USDT"
+];
 
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      "Content-Type":"application/json",
-      ...(options.headers || {})
+function toggleAuth(){
+  authMode = authMode === "login" ? "register" : "login";
+
+  document.getElementById("loginTitle").textContent =
+    authMode === "login"
+      ? "VELTRIX Login"
+      : "Create VELTRIX Account";
+
+  document.getElementById("authButton").textContent =
+    authMode === "login" ? "LOGIN" : "REGISTER";
+
+  document.getElementById("displayName").style.display =
+    authMode === "login" ? "none" : "block";
+
+  document.getElementById("switchText").textContent =
+    authMode === "login"
+      ? "Create a new account"
+      : "Already have an account? Login";
+}
+
+async function submitAuth(){
+
+  const email =
+    document.getElementById("email").value.trim();
+
+  const password =
+    document.getElementById("password").value;
+
+  const displayName =
+    document.getElementById("displayName").value.trim();
+
+  const message =
+    document.getElementById("loginMessage");
+
+  message.textContent = "";
+
+  const endpoint =
+    authMode === "login"
+      ? "/api/login"
+      : "/api/register";
+
+  const body =
+    authMode === "login"
+      ? {email,password}
+      : {email,password,displayName};
+
+  try{
+
+    const response = await fetch(endpoint,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify(body)
+    });
+
+    const data = await response.json();
+
+    if(!response.ok){
+      throw new Error(data.error || "Request failed");
     }
-  });
 
-  const data = await response.json().catch(() => ({}));
+    if(authMode === "register"){
+      authMode = "login";
+      toggleAuth();
+      message.style.color="#32dc8b";
+      message.textContent =
+        "Account created. Please login.";
+      return;
+    }
 
-  if (!response.ok) {
-    throw new Error(data.error || "Request failed");
-  }
-
-  return data;
-}
-
-async function registerUser(){
-
-  try{
-
-    const data = await api("/api/auth/register",{
-      method:"POST",
-      body:JSON.stringify({
-        email:document.getElementById("email").value,
-        password:document.getElementById("password").value,
-        displayName:document.getElementById("displayName").value
-      })
-    });
-
-    alert(data.message);
+    document.getElementById("login").classList.remove("show");
+    loadBalances();
 
   }catch(error){
-    alert(error.message);
+    message.style.color="#ff7181";
+    message.textContent=error.message;
   }
 }
 
-async function loginUser(){
+function setSide(value){
 
-  try{
+  side=value;
 
-    const data = await api("/api/auth/login",{
-      method:"POST",
-      body:JSON.stringify({
-        email:document.getElementById("email").value,
-        password:document.getElementById("password").value
-      })
-    });
+  document.getElementById("buyTab")
+    .classList.toggle("active",side==="buy");
 
-    alert("Welcome " + data.user.displayName);
+  document.getElementById("sellTab")
+    .classList.toggle("active",side==="sell");
 
-    loadAccount();
+  const btn=document.getElementById("orderBtn");
 
-  }catch(error){
-    alert(error.message);
-  }
+  btn.textContent=side==="buy"?"BUY":"SELL";
+  btn.className=side==="buy"?"buy":"sell";
 }
 
-async function loadAccount(){
+function buildMarkets(){
 
-  try{
+  const box=document.getElementById("markets");
 
-    const me = await api("/api/auth/me");
+  box.innerHTML="";
 
-    document.getElementById("account").innerHTML = `
-      <div class="balance">
-        <span>User</span>
-        <strong>${escapeHtml(me.user.display_name || me.user.displayName)}</strong>
-      </div>
+  pairs.forEach(pair=>{
 
-      <div class="balance">
-        <span>KYC</span>
-        <strong>${escapeHtml(me.user.kyc_status || "pending")}</strong>
-      </div>
+    const div=document.createElement("div");
 
-      <br>
+    div.className =
+      "market"+(pair===currentPair?" active":"");
 
-      <button class="secondary" onclick="logoutUser()">Logout</button>
+    div.innerHTML=`
+      <b>${pair}</b>
+      <small>Spot</small>
     `;
 
-    const balances = await api("/api/balances");
+    div.onclick=()=>{
+      currentPair=pair;
+      buildMarkets();
+      loadOrderBook();
+    };
 
-    const wallet = document.getElementById("wallet");
+    box.appendChild(div);
+  });
 
-    wallet.innerHTML = "";
-
-    balances.forEach(item => {
-
-      wallet.innerHTML += `
-        <div class="balance">
-          <span>${escapeHtml(item.symbol)}</span>
-          <strong>${escapeHtml(String(item.available))}</strong>
-        </div>
-      `;
-
-    });
-
-  }catch(error){
-
-    console.log("Not logged in");
-
-  }
+  document.getElementById("pair").textContent=currentPair;
 }
 
-async function logoutUser(){
+async function loadOrderBook(){
+
+  document.getElementById("pair").textContent=currentPair;
 
   try{
 
-    await api("/api/auth/logout",{
-      method:"POST"
-    });
+    const r=await fetch(
+      "/api/orderbook/"+encodeURIComponent(currentPair)
+    );
 
-    location.reload();
+    const data=await r.json();
+
+    document.getElementById("asks").innerHTML =
+      (data.asks||[]).map(x=>`
+        <div class="book-row">
+          <span class="ask">${x.price}</span>
+          <span>${x.quantity}</span>
+          <span>${(
+            Number(x.price)*Number(x.quantity)
+          ).toFixed(4)}</span>
+        </div>
+      `).join("");
+
+    document.getElementById("bids").innerHTML =
+      (data.bids||[]).map(x=>`
+        <div class="book-row">
+          <span class="bid">${x.price}</span>
+          <span>${x.quantity}</span>
+          <span>${(
+            Number(x.price)*Number(x.quantity)
+          ).toFixed(4)}</span>
+        </div>
+      `).join("");
 
   }catch(error){
-
-    alert(error.message);
-
+    console.error(error);
   }
 }
 
-function escapeHtml(value){
+async function loadBalances(){
 
-  return String(value)
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
+  try{
+
+    const r=await fetch("/api/balances");
+
+    if(r.status===401){
+      document.getElementById("login")
+        .classList.add("show");
+      return;
+    }
+
+    const data=await r.json();
+
+    document.getElementById("balances").innerHTML =
+      data.slice(0,4).map(x=>`
+        <div class="balance">
+          <small>${x.symbol}</small>
+          <b>${Number(x.available).toFixed(6)}</b>
+        </div>
+      `).join("");
+
+  }catch(error){
+    console.error(error);
+  }
 }
 
-loadAccount();
+async function placeOrder(){
 
+  const price =
+    document.getElementById("price").value;
+
+  const quantity =
+    document.getElementById("quantity").value;
+
+  const message =
+    document.getElementById("orderMessage");
+
+  message.textContent="";
+
+  try{
+
+    const r=await fetch("/api/orders",{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json"
+      },
+      body:JSON.stringify({
+        symbol:currentPair,
+        side:side,
+        orderType:"limit",
+        price:price,
+        quantity:quantity
+      })
+    });
+
+    const data=await r.json();
+
+    if(!r.ok){
+      throw new Error(data.error || "Order failed");
+    }
+
+    message.style.color="#32dc8b";
+    message.textContent =
+      "Order created and placed in the order book.";
+
+    loadBalances();
+    loadOrderBook();
+
+  }catch(error){
+
+    message.style.color="#ff7181";
+    message.textContent=error.message;
+  }
+}
+
+function updateCountdown(){
+
+  const target =
+    new Date("2026-11-24T00:00:00Z").getTime();
+
+  const diff =
+    Math.max(0,target-Date.now());
+
+  const totalSeconds =
+    Math.floor(diff/1000);
+
+  const days =
+    Math.floor(totalSeconds/86400);
+
+  const hours =
+    Math.floor((totalSeconds%86400)/3600);
+
+  const minutes =
+    Math.floor((totalSeconds%3600)/60);
+
+  const seconds =
+    totalSeconds%60;
+
+  document.getElementById("timer").textContent =
+    `${days}D ${String(hours).padStart(2,"0")}H `+
+    `${String(minutes).padStart(2,"0")}M `+
+    `${String(seconds).padStart(2,"0")}S`;
+}
+
+buildMarkets();
+loadOrderBook();
+loadBalances();
+updateCountdown();
+
+setInterval(updateCountdown,1000);
+setInterval(loadOrderBook,3000);
 </script>
 
 </body>
