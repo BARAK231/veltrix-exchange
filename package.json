@@ -1,14 +1,19 @@
 {
   "name": "veltrix-exchange",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
-  "description": "VELTRIX Exchange - VLX and multi-asset spot trading platform",
+  "description": "VELTRIX Exchange - VLX multi-asset spot trading platform",
+  "main": "server.js",
   "scripts": {
     "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "cookie-parser": "^1.4.7",
+    "decimal.js": "^10.6.0",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "pg": "^8.16.3"
