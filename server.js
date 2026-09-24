@@ -2,14 +2,12 @@ const express = require("express");
 const path = require("path");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
+const cookieParser = require("cookie-parser");
 const rateLimit = require("express-rate-limit");
 const { Pool } = require("pg");
 
 const app = express();
-const PORT = process.env.PORT || 10000;
-
-app.disable("x-powered-by");
-app.use(express.json({ limit: "100kb" }));
+const PORT = Number(process.env.PORT || 10000);
 
 const pool = process.env.DATABASE_URL
   ? new Pool({
@@ -18,512 +16,800 @@ const pool = process.env.DATABASE_URL
     })
   : null;
 
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 300,
-  standardHeaders: true,
-  legacyHeaders: false
-});
+app.use(express.json({ limit: "1mb" }));
+app.use(cookieParser());
 
-app.use("/api", apiLimiter);
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 300,
+    standardHeaders: true,
+    legacyHeaders: false
+  })
+);
 
-function cookies(req) {
-  const result = {};
-  const header = req.headers.cookie || "";
+app.use(express.static(path.join(__dirname, "public")));
 
-  header.split(";").forEach(part => {
-    const index = part.indexOf("=");
-    if (index > -1) {
-      const key = part.slice(0, index).trim();
-      const value = part.slice(index + 1).trim();
-      result[key] = decodeURIComponent(value);
-    }
-  });
+const ASSETS = [
+  ["USDT", "Tether USD", "TBD", "active", null, 6],
+  ["BTC", "Bitcoin", "Bitcoin", "active", null, 8],
+  ["ETH", "Ethereum", "Ethereum", "active", null, 18],
+  ["SOL", "Solana", "Solana", "active", null, 9],
+  ["XRP", "XRP", "XRP Ledger", "active", null, 6],
+  ["TON", "Toncoin", "TON", "active", null, 9],
+  ["SHIB", "Shiba Inu", "Ethereum", "active", null, 18],
+  ["VLX", "VELTRIX", "TBD", "planned", "2026-11-24", 18]
+];
 
-  return result;
+const PAIRS = [
+  "BTC/USDT",
+  "ETH/USDT",
+  "SOL/USDT",
+  "XRP/USDT",
+  "TON/USDT",
+  "SHIB/USDT",
+  "VLX/USDT"
+];
+
+function requireDB() {
+  if (!pool) {
+    throw new Error("DATABASE_URL is not configured");
+  }
+}
+
+async function initDatabase() {
+  requireDB();
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS vlx_users (
+      id BIGSERIAL PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      display_name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS vlx_sessions (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES vlx_users(id) ON DELETE CASCADE,
+      token_hash TEXT UNIQUE NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS vlx_assets (
+      id BIGSERIAL PRIMARY KEY,
+      symbol TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      network TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      listing_date DATE,
+      decimals INT NOT NULL DEFAULT 18,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS vlx_balances (
+      user_id BIGINT NOT NULL REFERENCES vlx_users(id) ON DELETE CASCADE,
+      asset_id BIGINT NOT NULL REFERENCES vlx_assets(id) ON DELETE CASCADE,
+      available NUMERIC(38,18) NOT NULL DEFAULT 0,
+      locked NUMERIC(38,18) NOT NULL DEFAULT 0,
+      PRIMARY KEY(user_id, asset_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS vlx_ledger_entries (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES vlx_users(id),
+      asset_id BIGINT NOT NULL REFERENCES vlx_assets(id),
+      amount NUMERIC(38,18) NOT NULL,
+      type TEXT NOT NULL,
+      reference_id TEXT,
+      note TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS vlx_orders (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES vlx_users(id),
+      symbol TEXT NOT NULL,
+      side TEXT NOT NULL CHECK(side IN ('buy','sell')),
+      order_type TEXT NOT NULL CHECK(order_type IN ('market','limit')),
+      price NUMERIC(38,18),
+      quantity NUMERIC(38,18) NOT NULL CHECK(quantity > 0),
+      filled_quantity NUMERIC(38,18) NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'open',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE INDEX IF NOT EXISTS vlx_orders_book_idx
+    ON vlx_orders(symbol, side, status, price, created_at);
+
+    CREATE TABLE IF NOT EXISTS vlx_trades (
+      id BIGSERIAL PRIMARY KEY,
+      symbol TEXT NOT NULL,
+      buy_order_id BIGINT NOT NULL REFERENCES vlx_orders(id),
+      sell_order_id BIGINT NOT NULL REFERENCES vlx_orders(id),
+      buyer_id BIGINT NOT NULL REFERENCES vlx_users(id),
+      seller_id BIGINT NOT NULL REFERENCES vlx_users(id),
+      price NUMERIC(38,18) NOT NULL,
+      quantity NUMERIC(38,18) NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS vlx_deposits (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES vlx_users(id),
+      asset_id BIGINT NOT NULL REFERENCES vlx_assets(id),
+      amount NUMERIC(38,18) NOT NULL,
+      txid TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS vlx_withdrawals (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT NOT NULL REFERENCES vlx_users(id),
+      asset_id BIGINT NOT NULL REFERENCES vlx_assets(id),
+      amount NUMERIC(38,18) NOT NULL,
+      address TEXT NOT NULL,
+      txid TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS vlx_audit_logs (
+      id BIGSERIAL PRIMARY KEY,
+      user_id BIGINT,
+      action TEXT NOT NULL,
+      ip TEXT,
+      metadata JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  for (const a of ASSETS) {
+    await pool.query(
+      `
+      INSERT INTO vlx_assets
+      (symbol,name,network,status,listing_date,decimals)
+      VALUES ($1,$2,$3,$4,$5,$6)
+      ON CONFLICT(symbol) DO UPDATE SET
+        name=EXCLUDED.name,
+        network=EXCLUDED.network,
+        status=EXCLUDED.status,
+        listing_date=EXCLUDED.listing_date,
+        decimals=EXCLUDED.decimals
+      `,
+      a
+    );
+  }
+
+  console.log("VELTRIX database initialized");
 }
 
 function hashToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-function makeToken() {
+function newToken() {
   return crypto.randomBytes(48).toString("hex");
 }
 
-function setSessionCookie(res, token) {
-  res.setHeader(
-    "Set-Cookie",
-    `veltrix_session=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800`
-  );
-}
-
-function clearSessionCookie(res) {
-  res.setHeader(
-    "Set-Cookie",
-    "veltrix_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0"
-  );
-}
-
-async function currentUser(req) {
-  if (!pool) return null;
-
-  const token = cookies(req).veltrix_session;
-  if (!token) return null;
-
-  const tokenHash = hashToken(token);
-
-  const result = await pool.query(
-    `SELECT u.id,u.email,u.display_name,u.telegram_user_id,
-            u.telegram_username,u.role,u.kyc_status
-     FROM sessions s
-     JOIN users u ON u.id=s.user_id
-     WHERE s.token_hash=$1 AND s.expires_at > NOW()`,
-    [tokenHash]
-  );
-
-  return result.rows[0] || null;
-}
-
-async function audit(userId, action, req, metadata = {}) {
-  if (!pool) return;
-
-  await pool.query(
-    `INSERT INTO audit_logs(user_id,action,ip,metadata)
-     VALUES($1,$2,$3,$4)`,
-    [
-      userId || null,
-      action,
-      req.headers["x-forwarded-for"] || req.socket.remoteAddress || null,
-      JSON.stringify(metadata)
-    ]
-  );
-}
-
-function requireDatabase(req, res, next) {
-  if (!pool) {
-    return res.status(503).json({
-      error: "Database is not configured yet."
-    });
-  }
-
-  next();
-}
-
-async function requireAuth(req, res, next) {
+async function auth(req, res) {
   try {
-    const user = await currentUser(req);
+    requireDB();
 
-    if (!user) {
-      return res.status(401).json({
-        error: "Authentication required."
-      });
+    const token = req.cookies.vlx_session;
+
+    if (!token) {
+      res.status(401).json({ error: "Login required" });
+      return null;
     }
 
-    req.user = user;
-    next();
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Authentication error." });
+    const result = await pool.query(
+      `
+      SELECT u.*
+      FROM vlx_sessions s
+      JOIN vlx_users u ON u.id=s.user_id
+      WHERE s.token_hash=$1
+      AND s.expires_at > NOW()
+      `,
+      [hashToken(token)]
+    );
+
+    if (!result.rows.length) {
+      res.status(401).json({ error: "Session expired" });
+      return null;
+    }
+
+    return result.rows[0];
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Authentication error" });
+    return null;
   }
 }
 
-/* ---------- BASIC ---------- */
+function validEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function validAmount(value) {
+  return /^\d+(\.\d{1,18})?$/.test(String(value));
+}
+
+function validPair(symbol) {
+  return PAIRS.includes(symbol);
+}
+
+/* HEALTH */
 
 app.get("/api/health", async (req, res) => {
-  let database = "not_configured";
+  try {
+    requireDB();
+    await pool.query("SELECT 1");
 
-  if (pool) {
-    try {
-      await pool.query("SELECT 1");
-      database = "connected";
-    } catch {
-      database = "error";
-    }
+    res.json({
+      ok: true,
+      project: "VELTRIX EXCHANGE",
+      database: "PostgreSQL",
+      mode: "LIVE-BACKEND",
+      pairs: PAIRS
+    });
+  } catch (err) {
+    res.status(500).json({
+      ok: false,
+      error: "Database unavailable"
+    });
   }
-
-  res.json({
-    name: "VELTRIX EXCHANGE",
-    symbol: "VLX",
-    status: "online",
-    database
-  });
 });
+
+/* CONFIG */
 
 app.get("/api/config", (req, res) => {
   res.json({
     name: "VELTRIX EXCHANGE",
     symbol: "VLX",
-    listingDate: process.env.VLX_LISTING_DATE || "2026-11-17",
-    mode: "DEVELOPMENT / FOUNDATION",
-    tradingEnabled: false,
-    withdrawalsEnabled: false
+    pairs: PAIRS,
+    listingDateUTC: "2026-11-24T00:00:00Z"
   });
 });
 
-/* ---------- REGISTER ---------- */
+/* ASSETS */
 
-app.post("/api/auth/register", requireDatabase, async (req, res) => {
+app.get("/api/assets", async (req, res) => {
   try {
+    requireDB();
+
+    const result = await pool.query(`
+      SELECT symbol,name,network,status,listing_date,decimals
+      FROM vlx_assets
+      ORDER BY id
+    `);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load assets" });
+  }
+});
+
+/* REGISTER */
+
+app.post("/api/register", async (req, res) => {
+  try {
+    requireDB();
+
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
     const displayName = String(req.body.displayName || "").trim();
 
-    if (!email || !password || !displayName) {
-      return res.status(400).json({
-        error: "Email, password and display name are required."
-      });
+    if (!validEmail(email)) {
+      return res.status(400).json({ error: "Invalid email" });
     }
 
     if (password.length < 8) {
       return res.status(400).json({
-        error: "Password must contain at least 8 characters."
+        error: "Password must contain at least 8 characters"
+      });
+    }
+
+    if (!displayName || displayName.length > 80) {
+      return res.status(400).json({
+        error: "Invalid display name"
       });
     }
 
     const existing = await pool.query(
-      "SELECT id FROM users WHERE email=$1",
+      "SELECT id FROM vlx_users WHERE email=$1",
       [email]
     );
 
     if (existing.rows.length) {
       return res.status(409).json({
-        error: "Email already registered."
+        error: "Email already registered"
       });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
 
-    const result = await pool.query(
-      `INSERT INTO users(email,password_hash,display_name)
-       VALUES($1,$2,$3)
-       RETURNING id,email,display_name,role,kyc_status`,
+    const user = await pool.query(
+      `
+      INSERT INTO vlx_users(email,password_hash,display_name)
+      VALUES($1,$2,$3)
+      RETURNING id,email,display_name,role,created_at
+      `,
       [email, passwordHash, displayName]
     );
 
-    const user = result.rows[0];
+    const userId = user.rows[0].id;
 
     const assets = await pool.query(
-      "SELECT id FROM assets WHERE status='active'"
+      "SELECT id FROM vlx_assets"
     );
 
     for (const asset of assets.rows) {
       await pool.query(
-        `INSERT INTO balances(user_id,asset_id)
-         VALUES($1,$2)
-         ON CONFLICT DO NOTHING`,
-        [user.id, asset.id]
+        `
+        INSERT INTO vlx_balances(user_id,asset_id)
+        VALUES($1,$2)
+        ON CONFLICT DO NOTHING
+        `,
+        [userId, asset.id]
       );
     }
 
-    await audit(user.id, "register", req);
-
     res.status(201).json({
-      message: "Account created.",
-      user
+      ok: true,
+      user: user.rows[0]
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Registration failed." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: "Registration failed"
+    });
   }
 });
 
-/* ---------- LOGIN ---------- */
+/* LOGIN */
 
-app.post("/api/auth/login", requireDatabase, async (req, res) => {
+app.post("/api/login", async (req, res) => {
   try {
+    requireDB();
+
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
 
     const result = await pool.query(
-      `SELECT * FROM users WHERE email=$1`,
+      "SELECT * FROM vlx_users WHERE email=$1",
       [email]
     );
 
-    const user = result.rows[0];
-
-    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    if (!result.rows.length) {
       return res.status(401).json({
-        error: "Invalid email or password."
+        error: "Invalid email or password"
       });
     }
 
-    const token = makeToken();
-    const tokenHash = hashToken(token);
-    const days = Number(process.env.SESSION_DAYS || 7);
+    const user = result.rows[0];
 
-    await pool.query(
-      `INSERT INTO sessions(user_id,token_hash,expires_at)
-       VALUES($1,$2,NOW()+($3 || ' days')::interval)`,
-      [user.id, tokenHash, days]
+    const valid = await bcrypt.compare(
+      password,
+      user.password_hash
     );
 
-    setSessionCookie(res, token);
+    if (!valid) {
+      return res.status(401).json({
+        error: "Invalid email or password"
+      });
+    }
 
-    await audit(user.id, "login", req);
+    const token = newToken();
+
+    await pool.query(
+      `
+      INSERT INTO vlx_sessions
+      (user_id,token_hash,expires_at)
+      VALUES($1,$2,NOW()+INTERVAL '7 days')
+      `,
+      [user.id, hashToken(token)]
+    );
+
+    res.cookie("vlx_session", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000
+    });
 
     res.json({
-      message: "Login successful.",
+      ok: true,
       user: {
         id: user.id,
         email: user.email,
         displayName: user.display_name,
-        role: user.role,
-        kycStatus: user.kyc_status
+        role: user.role
       }
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Login failed." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: "Login failed"
+    });
   }
 });
 
-/* ---------- LOGOUT ---------- */
+/* CURRENT USER */
 
-app.post("/api/auth/logout", requireDatabase, async (req, res) => {
-  const token = cookies(req).veltrix_session;
+app.get("/api/me", async (req, res) => {
+  const user = await auth(req, res);
 
-  if (token) {
-    await pool.query(
-      "DELETE FROM sessions WHERE token_hash=$1",
-      [hashToken(token)]
-    );
-  }
+  if (!user) return;
 
-  clearSessionCookie(res);
-
-  res.json({ message: "Logged out." });
+  res.json({
+    id: user.id,
+    email: user.email,
+    displayName: user.display_name,
+    role: user.role
+  });
 });
 
-/* ---------- CURRENT USER ---------- */
+/* LOGOUT */
 
-app.get("/api/auth/me", requireDatabase, requireAuth, async (req, res) => {
-  res.json({ user: req.user });
-});
+app.post("/api/logout", async (req, res) => {
+  try {
+    requireDB();
 
-/* ---------- ASSETS ---------- */
+    const token = req.cookies.vlx_session;
 
-app.get("/api/assets", async (req, res) => {
-  if (!pool) {
-    return res.json([
-      {
-        symbol: "USDT",
-        name: "Tether USD",
-        status: "active"
-      },
-      {
-        symbol: "VLX",
-        name: "VELTRIX",
-        status: "planned",
-        listingDate: process.env.VLX_LISTING_DATE || "2026-11-17"
-      }
-    ]);
-  }
-
-  const result = await pool.query(
-    `SELECT symbol,name,network,status,listing_date,decimals
-     FROM assets
-     ORDER BY symbol`
-  );
-
-  res.json(result.rows);
-});
-
-/* ---------- BALANCES ---------- */
-
-app.get("/api/balances", requireDatabase, requireAuth, async (req, res) => {
-  const result = await pool.query(
-    `SELECT a.symbol,a.name,b.available,b.locked
-     FROM balances b
-     JOIN assets a ON a.id=b.asset_id
-     WHERE b.user_id=$1
-     ORDER BY a.symbol`,
-    [req.user.id]
-  );
-
-  res.json(result.rows);
-});
-
-/* ---------- LEDGER ---------- */
-
-app.get("/api/ledger", requireDatabase, requireAuth, async (req, res) => {
-  const result = await pool.query(
-    `SELECT l.id,a.symbol,l.amount,l.type,
-            l.reference_id,l.note,l.created_at
-     FROM ledger_entries l
-     JOIN assets a ON a.id=l.asset_id
-     WHERE l.user_id=$1
-     ORDER BY l.created_at DESC
-     LIMIT 100`,
-    [req.user.id]
-  );
-
-  res.json(result.rows);
-});
-
-/* ---------- TELEGRAM MINING CREDIT ---------- */
-
-app.post(
-  "/api/miner/credit",
-  requireDatabase,
-  async (req, res) => {
-    try {
-      const telegramUserId = String(req.body.telegramUserId || "");
-      const amount = String(req.body.amount || "");
-      const requestId = String(req.body.requestId || "");
-      const signature = String(req.headers["x-miner-signature"] || "");
-
-      if (!telegramUserId || !amount || !requestId || !signature) {
-        return res.status(400).json({
-          error: "Missing mining request fields."
-        });
-      }
-
-      const secret = process.env.MINER_WEBHOOK_SECRET;
-
-      if (!secret) {
-        return res.status(503).json({
-          error: "Mining webhook secret is not configured."
-        });
-      }
-
-      const raw = `${telegramUserId}:${amount}:${requestId}`;
-
-      const expected = crypto
-        .createHmac("sha256", secret)
-        .update(raw)
-        .digest("hex");
-
-      if (
-        signature.length !== expected.length ||
-        !crypto.timingSafeEqual(
-          Buffer.from(signature),
-          Buffer.from(expected)
-        )
-      ) {
-        return res.status(401).json({
-          error: "Invalid mining signature."
-        });
-      }
-
-      const duplicate = await pool.query(
-        `SELECT id FROM miner_credits WHERE request_id=$1`,
-        [requestId]
-      );
-
-      if (duplicate.rows.length) {
-        return res.json({
-          message: "Request already processed."
-        });
-      }
-
-      const userResult = await pool.query(
-        `SELECT id FROM users
-         WHERE telegram_user_id=$1`,
-        [telegramUserId]
-      );
-
-      if (!userResult.rows.length) {
-        return res.status(404).json({
-          error: "Telegram account is not linked to a VELTRIX account."
-        });
-      }
-
-      const userId = userResult.rows[0].id;
-
-      const assetResult = await pool.query(
-        `SELECT id FROM assets WHERE symbol='VLX' LIMIT 1`
-      );
-
-      if (!assetResult.rows.length) {
-        return res.status(500).json({
-          error: "VLX asset is not configured."
-        });
-      }
-
-      const assetId = assetResult.rows[0].id;
-
-      await pool.query("BEGIN");
-
+    if (token) {
       await pool.query(
-        `INSERT INTO miner_credits
-         (request_id,telegram_user_id,amount,credited_user_id)
-         VALUES($1,$2,$3,$4)`,
-        [requestId, telegramUserId, amount, userId]
+        "DELETE FROM vlx_sessions WHERE token_hash=$1",
+        [hashToken(token)]
       );
-
-      await pool.query(
-        `INSERT INTO balances(user_id,asset_id,available)
-         VALUES($1,$2,$3)
-         ON CONFLICT(user_id,asset_id)
-         DO UPDATE SET available=balances.available + EXCLUDED.available`,
-        [userId, assetId, amount]
-      );
-
-      await pool.query(
-        `INSERT INTO ledger_entries
-         (user_id,asset_id,amount,type,reference_id,note)
-         VALUES($1,$2,$3,'mining_credit',$4,$5)`,
-        [
-          userId,
-          assetId,
-          amount,
-          requestId,
-          "Telegram mining credit"
-        ]
-      );
-
-      await pool.query("COMMIT");
-
-      await audit(userId, "miner_credit", req, {
-        requestId,
-        amount
-      });
-
-      res.json({
-        message: "Mining credit added.",
-        amount
-      });
-    } catch (error) {
-      try {
-        await pool.query("ROLLBACK");
-      } catch {}
-
-      console.error(error);
-
-      res.status(500).json({
-        error: "Mining credit failed."
-      });
     }
+
+    res.clearCookie("vlx_session");
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({
+      error: "Logout failed"
+    });
   }
-);
-
-/* ---------- ORDERS ---------- */
-
-app.get("/api/orders", requireDatabase, requireAuth, async (req, res) => {
-  const result = await pool.query(
-    `SELECT id,symbol,side,order_type,price,
-            quantity,filled_quantity,status,created_at
-     FROM orders
-     WHERE user_id=$1
-     ORDER BY created_at DESC
-     LIMIT 100`,
-    [req.user.id]
-  );
-
-  res.json(result.rows);
 });
 
-/* ---------- FRONTEND ---------- */
+/* BALANCES */
 
-app.use(express.static(path.join(__dirname, "public")));
+app.get("/api/balances", async (req, res) => {
+  const user = await auth(req, res);
+
+  if (!user) return;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT
+        a.symbol,
+        a.name,
+        a.network,
+        a.status,
+        b.available,
+        b.locked
+      FROM vlx_balances b
+      JOIN vlx_assets a ON a.id=b.asset_id
+      WHERE b.user_id=$1
+      ORDER BY a.id
+      `,
+      [user.id]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: "Failed to load balances"
+    });
+  }
+});
+
+/* ORDER BOOK */
+
+app.get("/api/orderbook/:symbol", async (req, res) => {
+  const symbol = req.params.symbol;
+
+  if (!validPair(symbol)) {
+    return res.status(400).json({
+      error: "Invalid trading pair"
+    });
+  }
+
+  try {
+    const asks = await pool.query(
+      `
+      SELECT price, quantity, filled_quantity
+      FROM vlx_orders
+      WHERE symbol=$1
+      AND side='sell'
+      AND status IN ('open','partially_filled')
+      ORDER BY price ASC
+      LIMIT 50
+      `,
+      [symbol]
+    );
+
+    const bids = await pool.query(
+      `
+      SELECT price, quantity, filled_quantity
+      FROM vlx_orders
+      WHERE symbol=$1
+      AND side='buy'
+      AND status IN ('open','partially_filled')
+      ORDER BY price DESC
+      LIMIT 50
+      `,
+      [symbol]
+    );
+
+    res.json({
+      symbol,
+      asks: asks.rows,
+      bids: bids.rows
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      error: "Failed to load order book"
+    });
+  }
+});
+
+/* CREATE LIMIT ORDER */
+
+app.post("/api/orders", async (req, res) => {
+  const user = await auth(req, res);
+
+  if (!user) return;
+
+  const symbol = String(req.body.symbol || "");
+  const side = String(req.body.side || "");
+  const type = String(req.body.orderType || "limit");
+  const price = String(req.body.price || "");
+  const quantity = String(req.body.quantity || "");
+
+  if (!validPair(symbol)) {
+    return res.status(400).json({
+      error: "Invalid trading pair"
+    });
+  }
+
+  if (!["buy", "sell"].includes(side)) {
+    return res.status(400).json({
+      error: "Invalid order side"
+    });
+  }
+
+  if (type !== "limit") {
+    return res.status(400).json({
+      error: "Market orders will be enabled after the matching engine is fully tested"
+    });
+  }
+
+  if (!validAmount(price) || !validAmount(quantity)) {
+    return res.status(400).json({
+      error: "Invalid price or quantity"
+    });
+  }
+
+  if (Number(price) <= 0 || Number(quantity) <= 0) {
+    return res.status(400).json({
+      error: "Price and quantity must be positive"
+    });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const [base, quote] = symbol.split("/");
+
+    const assetResult = await client.query(
+      `
+      SELECT id,symbol
+      FROM vlx_assets
+      WHERE symbol IN ($1,$2)
+      `,
+      [base, quote]
+    );
+
+    if (assetResult.rows.length !== 2) {
+      throw new Error("Asset not found");
+    }
+
+    const baseAsset = assetResult.rows.find(
+      x => x.symbol === base
+    );
+
+    const quoteAsset = assetResult.rows.find(
+      x => x.symbol === quote
+    );
+
+    const balanceAsset = side === "buy"
+      ? quoteAsset
+      : baseAsset;
+
+    const required = side === "buy"
+      ? Number(price) * Number(quantity)
+      : Number(quantity);
+
+    const balance = await client.query(
+      `
+      SELECT available
+      FROM vlx_balances
+      WHERE user_id=$1 AND asset_id=$2
+      FOR UPDATE
+      `,
+      [user.id, balanceAsset.id]
+    );
+
+    if (!balance.rows.length) {
+      throw new Error("Balance not found");
+    }
+
+    if (Number(balance.rows[0].available) < required) {
+      throw new Error(
+        `Insufficient ${balanceAsset.symbol} balance`
+      );
+    }
+
+    await client.query(
+      `
+      UPDATE vlx_balances
+      SET available=available-$1,
+          locked=locked+$1
+      WHERE user_id=$2 AND asset_id=$3
+      `,
+      [required, user.id, balanceAsset.id]
+    );
+
+    const order = await client.query(
+      `
+      INSERT INTO vlx_orders
+      (user_id,symbol,side,order_type,price,quantity)
+      VALUES($1,$2,$3,$4,$5,$6)
+      RETURNING *
+      `,
+      [
+        user.id,
+        symbol,
+        side,
+        type,
+        price,
+        quantity
+      ]
+    );
+
+    await client.query("COMMIT");
+
+    res.status(201).json({
+      ok: true,
+      order: order.rows[0],
+      message:
+        "Order created. Matching engine will execute it when a matching order is available."
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+
+    res.status(400).json({
+      error: err.message
+    });
+  } finally {
+    client.release();
+  }
+});
+
+/* OPEN ORDERS */
+
+app.get("/api/orders", async (req, res) => {
+  const user = await auth(req, res);
+
+  if (!user) return;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT *
+      FROM vlx_orders
+      WHERE user_id=$1
+      ORDER BY id DESC
+      LIMIT 200
+      `,
+      [user.id]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({
+      error: "Failed to load orders"
+    });
+  }
+});
+
+/* TRADES */
+
+app.get("/api/trades/:symbol", async (req, res) => {
+  const symbol = req.params.symbol;
+
+  if (!validPair(symbol)) {
+    return res.status(400).json({
+      error: "Invalid trading pair"
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT price,quantity,created_at
+      FROM vlx_trades
+      WHERE symbol=$1
+      ORDER BY id DESC
+      LIMIT 100
+      `,
+      [symbol]
+    );
+
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({
+      error: "Failed to load trades"
+    });
+  }
+});
+
+/* VLX COUNTDOWN */
+
+app.get("/api/listing", (req, res) => {
+  const listing = new Date("2026-11-24T00:00:00Z");
+
+  res.json({
+    symbol: "VLX",
+    listingDateUTC: listing.toISOString(),
+    nowUTC: new Date().toISOString(),
+    remainingMilliseconds: Math.max(
+      0,
+      listing.getTime() - Date.now()
+    )
+  });
+});
+
+/* FRONTEND */
 
 app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.sendFile(
+    path.join(__dirname, "public", "index.html")
+  );
 });
 
-/* ---------- START ---------- */
+/* START */
 
-app.listen(PORT, () => {
-  console.log(`VELTRIX EXCHANGE running on port ${PORT}`);
-});
+async function start() {
+  try {
+    await initDatabase();
+
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(
+        `VELTRIX EXCHANGE running on port ${PORT}`
+      );
+    });
+  } catch (err) {
+    console.error(
+      "VELTRIX startup failed:",
+      err.message
+    );
+
+    process.exit(1);
+  }
+}
+
+start();
