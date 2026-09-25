@@ -5,9 +5,15 @@ const bcrypt = require("bcryptjs");
 const cookieParser = require("cookie-parser");
 const rateLimit = require("express-rate-limit");
 const { Pool } = require("pg");
+const Decimal = require("decimal.js");
 
 const app = express();
 const PORT = Number(process.env.PORT || 10000);
+
+Decimal.set({
+  precision: 50,
+  rounding: Decimal.ROUND_DOWN
+});
 
 /* =========================================================
    DATABASE
@@ -19,11 +25,6 @@ if (!DATABASE_URL) {
   console.error("VELTRIX ERROR: DATABASE_URL is not configured.");
   process.exit(1);
 }
-
-/*
-  Render PostgreSQL normally provides DATABASE_URL.
-  SSL is enabled for Render/PostgreSQL compatibility.
-*/
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
@@ -49,7 +50,7 @@ app.use(cookieParser());
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 300,
+    max: 500,
     standardHeaders: true,
     legacyHeaders: false
   })
@@ -58,7 +59,7 @@ app.use(
 app.use(express.static(path.join(__dirname, "public")));
 
 /* =========================================================
-   ASSETS
+   CONFIG
    ========================================================= */
 
 const ASSETS = [
@@ -81,6 +82,8 @@ const PAIRS = [
   "SHIB/USDT",
   "VLX/USDT"
 ];
+
+const LISTING_DATE = "2026-11-24T00:00:00Z";
 
 /* =========================================================
    HELPERS
@@ -111,8 +114,143 @@ function validAmount(value) {
   return /^\d+(\.\d{1,18})?$/.test(String(value));
 }
 
+function positiveDecimal(value) {
+  try {
+    const d = new Decimal(String(value));
+
+    if (!d.isFinite() || d.lte(0)) {
+      return null;
+    }
+
+    return d;
+  } catch {
+    return null;
+  }
+}
+
 function validPair(symbol) {
   return PAIRS.includes(symbol);
+}
+
+function splitPair(symbol) {
+  const parts = symbol.split("/");
+
+  return {
+    base: parts[0],
+    quote: parts[1]
+  };
+}
+
+function remainingQuantity(order) {
+  return new Decimal(String(order.quantity))
+    .minus(new Decimal(String(order.filled_quantity || 0)));
+}
+
+function isOpenOrder(order) {
+  return (
+    order.status === "open" ||
+    order.status === "partially_filled"
+  );
+}
+
+async function getAsset(client, symbol) {
+  const result = await client.query(
+    `
+    SELECT *
+    FROM vlx_assets
+    WHERE symbol=$1
+    LIMIT 1
+    `,
+    [symbol]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function ensureBalance(client, userId, assetId) {
+  await client.query(
+    `
+    INSERT INTO vlx_balances
+    (user_id,asset_id,available,locked)
+    VALUES($1,$2,0,0)
+    ON CONFLICT(user_id,asset_id)
+    DO NOTHING
+    `,
+    [userId, assetId]
+  );
+}
+
+async function getBalanceForUpdate(
+  client,
+  userId,
+  assetId
+) {
+  await ensureBalance(client, userId, assetId);
+
+  const result = await client.query(
+    `
+    SELECT *
+    FROM vlx_balances
+    WHERE user_id=$1
+    AND asset_id=$2
+    FOR UPDATE
+    `,
+    [userId, assetId]
+  );
+
+  if (!result.rows.length) {
+    throw new Error("Balance not found");
+  }
+
+  return result.rows[0];
+}
+
+async function ledger(
+  client,
+  userId,
+  assetId,
+  amount,
+  type,
+  referenceId,
+  note
+) {
+  await client.query(
+    `
+    INSERT INTO vlx_ledger_entries
+    (user_id,asset_id,amount,type,reference_id,note)
+    VALUES($1,$2,$3,$4,$5,$6)
+    `,
+    [
+      userId,
+      assetId,
+      String(amount),
+      type,
+      referenceId || null,
+      note || null
+    ]
+  );
+}
+
+async function audit(
+  client,
+  userId,
+  action,
+  ip,
+  metadata = {}
+) {
+  await client.query(
+    `
+    INSERT INTO vlx_audit_logs
+    (user_id,action,ip,metadata)
+    VALUES($1,$2,$3,$4)
+    `,
+    [
+      userId || null,
+      action,
+      ip || null,
+      JSON.stringify(metadata)
+    ]
+  );
 }
 
 /* =========================================================
@@ -121,10 +259,6 @@ function validPair(symbol) {
 
 async function initDatabase() {
   requireDB();
-
-  /*
-    Test the connection first.
-  */
 
   await pool.query("SELECT 1");
 
@@ -206,6 +340,9 @@ async function initDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE INDEX IF NOT EXISTS vlx_trades_symbol_idx
+    ON vlx_trades(symbol, created_at DESC);
+
     CREATE TABLE IF NOT EXISTS vlx_deposits (
       id BIGSERIAL PRIMARY KEY,
       user_id BIGINT NOT NULL REFERENCES vlx_users(id),
@@ -238,21 +375,32 @@ async function initDatabase() {
   `);
 
   /*
-    Insert/update supported assets.
+    Safe migration for older databases.
   */
+
+  await pool.query(`
+    ALTER TABLE vlx_users
+    ADD COLUMN IF NOT EXISTS telegram_user_id TEXT;
+
+    CREATE UNIQUE INDEX IF NOT EXISTS
+    vlx_users_telegram_user_idx
+    ON vlx_users(telegram_user_id)
+    WHERE telegram_user_id IS NOT NULL;
+  `);
 
   for (const asset of ASSETS) {
     await pool.query(
       `
       INSERT INTO vlx_assets
-      (symbol, name, network, status, listing_date, decimals)
-      VALUES ($1,$2,$3,$4,$5,$6)
-      ON CONFLICT(symbol) DO UPDATE SET
-        name = EXCLUDED.name,
-        network = EXCLUDED.network,
-        status = EXCLUDED.status,
-        listing_date = EXCLUDED.listing_date,
-        decimals = EXCLUDED.decimals
+      (symbol,name,network,status,listing_date,decimals)
+      VALUES($1,$2,$3,$4,$5,$6)
+      ON CONFLICT(symbol)
+      DO UPDATE SET
+        name=EXCLUDED.name,
+        network=EXCLUDED.network,
+        status=EXCLUDED.status,
+        listing_date=EXCLUDED.listing_date,
+        decimals=EXCLUDED.decimals
       `,
       asset
     );
@@ -267,14 +415,13 @@ async function initDatabase() {
 
 async function auth(req, res) {
   try {
-    requireDB();
-
     const token = req.cookies.vlx_session;
 
     if (!token) {
       res.status(401).json({
         error: "Login required"
       });
+
       return null;
     }
 
@@ -283,9 +430,10 @@ async function auth(req, res) {
       SELECT u.*
       FROM vlx_sessions s
       JOIN vlx_users u
-        ON u.id = s.user_id
-      WHERE s.token_hash = $1
-      AND s.expires_at > NOW()
+        ON u.id=s.user_id
+      WHERE s.token_hash=$1
+      AND s.expires_at>NOW()
+      LIMIT 1
       `,
       [hashToken(token)]
     );
@@ -294,6 +442,7 @@ async function auth(req, res) {
       res.status(401).json({
         error: "Session expired"
       });
+
       return null;
     }
 
@@ -323,6 +472,7 @@ app.get("/api/health", async (req, res) => {
       project: "VELTRIX EXCHANGE",
       database: "PostgreSQL",
       mode: "LIVE-BACKEND",
+      matchingEngine: "ENABLED",
       pairs: PAIRS
     });
 
@@ -345,7 +495,8 @@ app.get("/api/config", (req, res) => {
     name: "VELTRIX EXCHANGE",
     symbol: "VLX",
     pairs: PAIRS,
-    listingDateUTC: "2026-11-24T00:00:00Z"
+    listingDateUTC: LISTING_DATE,
+    matchingEngine: true
   });
 });
 
@@ -441,13 +592,10 @@ app.post("/api/register", async (req, res) => {
     );
 
     for (const asset of assets.rows) {
-      await pool.query(
-        `
-        INSERT INTO vlx_balances(user_id,asset_id)
-        VALUES($1,$2)
-        ON CONFLICT DO NOTHING
-        `,
-        [userId, asset.id]
+      await ensureBalance(
+        pool,
+        userId,
+        asset.id
       );
     }
 
@@ -606,14 +754,16 @@ app.get("/api/balances", async (req, res) => {
         b.locked
       FROM vlx_balances b
       JOIN vlx_assets a
-        ON a.id = b.asset_id
+        ON a.id=b.asset_id
       WHERE b.user_id=$1
       ORDER BY a.id
       `,
       [user.id]
     );
 
-    res.json(result.rows);
+    res.json({
+      balances: result.rows
+    });
 
   } catch (err) {
     console.error("BALANCES ERROR:", err.message);
@@ -640,12 +790,16 @@ app.get("/api/orderbook/:symbol", async (req, res) => {
   try {
     const asks = await pool.query(
       `
-      SELECT price,quantity,filled_quantity
+      SELECT
+        price,
+        quantity,
+        filled_quantity,
+        (quantity-filled_quantity) AS remaining_quantity
       FROM vlx_orders
       WHERE symbol=$1
       AND side='sell'
       AND status IN ('open','partially_filled')
-      ORDER BY price ASC
+      ORDER BY price ASC, created_at ASC, id ASC
       LIMIT 50
       `,
       [symbol]
@@ -653,12 +807,16 @@ app.get("/api/orderbook/:symbol", async (req, res) => {
 
     const bids = await pool.query(
       `
-      SELECT price,quantity,filled_quantity
+      SELECT
+        price,
+        quantity,
+        filled_quantity,
+        (quantity-filled_quantity) AS remaining_quantity
       FROM vlx_orders
       WHERE symbol=$1
       AND side='buy'
       AND status IN ('open','partially_filled')
-      ORDER BY price DESC
+      ORDER BY price DESC, created_at ASC, id ASC
       LIMIT 50
       `,
       [symbol]
@@ -680,7 +838,558 @@ app.get("/api/orderbook/:symbol", async (req, res) => {
 });
 
 /* =========================================================
-   CREATE LIMIT ORDER
+   MATCHING ENGINE
+   ========================================================= */
+
+async function matchOrder(client, orderId) {
+  const orderResult = await client.query(
+    `
+    SELECT *
+    FROM vlx_orders
+    WHERE id=$1
+    FOR UPDATE
+    `,
+    [orderId]
+  );
+
+  if (!orderResult.rows.length) {
+    throw new Error("Order not found");
+  }
+
+  const taker = orderResult.rows[0];
+
+  if (!isOpenOrder(taker)) {
+    return {
+      filled: new Decimal(0),
+      remaining: remainingQuantity(taker)
+    };
+  }
+
+  const { base, quote } = splitPair(taker.symbol);
+
+  const baseAsset = await getAsset(client, base);
+  const quoteAsset = await getAsset(client, quote);
+
+  if (!baseAsset || !quoteAsset) {
+    throw new Error("Trading assets not found");
+  }
+
+  let filledTotal = new Decimal(
+    String(taker.filled_quantity || 0)
+  );
+
+  let remaining = remainingQuantity(taker);
+
+  /*
+    Lock one symbol while matching.
+    This prevents two concurrent orders from consuming
+    the same book liquidity.
+  */
+
+  await client.query(
+    `SELECT pg_advisory_xact_lock(hashtext($1))`,
+    [taker.symbol]
+  );
+
+  while (remaining.gt(0)) {
+    let sql = `
+      SELECT *
+      FROM vlx_orders
+      WHERE symbol=$1
+      AND side=$2
+      AND status IN ('open','partially_filled')
+      AND id<>$3
+      AND user_id<>$4
+    `;
+
+    const params = [
+      taker.symbol,
+      taker.side === "buy" ? "sell" : "buy",
+      taker.id,
+      taker.user_id
+    ];
+
+    /*
+      Limit order price rules.
+    */
+
+    if (taker.order_type === "limit") {
+      if (taker.side === "buy") {
+        sql += ` AND price <= $5`;
+        params.push(taker.price);
+
+        sql += `
+          ORDER BY price ASC, created_at ASC, id ASC
+          LIMIT 1
+          FOR UPDATE SKIP LOCKED
+        `;
+      } else {
+        sql += ` AND price >= $5`;
+        params.push(taker.price);
+
+        sql += `
+          ORDER BY price DESC, created_at ASC, id ASC
+          LIMIT 1
+          FOR UPDATE SKIP LOCKED
+        `;
+      }
+
+    } else {
+      /*
+        Market buy:
+        lowest ask first.
+
+        Market sell:
+        highest bid first.
+      */
+
+      if (taker.side === "buy") {
+        sql += `
+          ORDER BY price ASC, created_at ASC, id ASC
+          LIMIT 1
+          FOR UPDATE SKIP LOCKED
+        `;
+      } else {
+        sql += `
+          ORDER BY price DESC, created_at ASC, id ASC
+          LIMIT 1
+          FOR UPDATE SKIP LOCKED
+        `;
+      }
+    }
+
+    const makerResult = await client.query(
+      sql,
+      params
+    );
+
+    if (!makerResult.rows.length) {
+      break;
+    }
+
+    const maker = makerResult.rows[0];
+
+    if (!isOpenOrder(maker)) {
+      continue;
+    }
+
+    const makerRemaining = remainingQuantity(maker);
+
+    if (makerRemaining.lte(0)) {
+      continue;
+    }
+
+    const tradeQuantity = Decimal.min(
+      remaining,
+      makerRemaining
+    );
+
+    const tradePrice = new Decimal(
+      String(maker.price)
+    );
+
+    const tradeValue = tradeQuantity.mul(
+      tradePrice
+    );
+
+    const buyerOrder =
+      taker.side === "buy"
+        ? taker
+        : maker;
+
+    const sellerOrder =
+      taker.side === "sell"
+        ? taker
+        : maker;
+
+    /*
+      Lock buyer/seller balances.
+    */
+
+    const buyerQuote = await getBalanceForUpdate(
+      client,
+      buyerOrder.user_id,
+      quoteAsset.id
+    );
+
+    const buyerBase = await getBalanceForUpdate(
+      client,
+      buyerOrder.user_id,
+      baseAsset.id
+    );
+
+    const sellerBase = await getBalanceForUpdate(
+      client,
+      sellerOrder.user_id,
+      baseAsset.id
+    );
+
+    const sellerQuote = await getBalanceForUpdate(
+      client,
+      sellerOrder.user_id,
+      quoteAsset.id
+    );
+
+    /*
+      Seller must have the base asset locked.
+    */
+
+    if (
+      new Decimal(String(sellerBase.locked))
+        .lt(tradeQuantity)
+    ) {
+      throw new Error(
+        "Seller locked balance is insufficient"
+      );
+    }
+
+    /*
+      Buyer market orders need quote balance.
+      Limit buyers already locked their maximum.
+    */
+
+    if (
+      buyerOrder.order_type === "market"
+      &&
+      new Decimal(String(buyerQuote.available))
+        .lt(tradeValue)
+    ) {
+      throw new Error(
+        "Insufficient quote balance for market order"
+      );
+    }
+
+    /*
+      BUYER:
+      base locked/available receives base.
+
+      For a limit buy, the maximum quote amount
+      was locked when the order was created.
+    */
+
+    await client.query(
+      `
+      UPDATE vlx_balances
+      SET available=available+$1
+      WHERE user_id=$2
+      AND asset_id=$3
+      `,
+      [
+        tradeQuantity.toFixed(18),
+        buyerOrder.user_id,
+        baseAsset.id
+      ]
+    );
+
+    /*
+      SELLER:
+      remove base from locked,
+      add quote to available.
+    */
+
+    await client.query(
+      `
+      UPDATE vlx_balances
+      SET locked=locked-$1
+      WHERE user_id=$2
+      AND asset_id=$3
+      `,
+      [
+        tradeQuantity.toFixed(18),
+        sellerOrder.user_id,
+        baseAsset.id
+      ]
+    );
+
+    await client.query(
+      `
+      UPDATE vlx_balances
+      SET available=available+$1
+      WHERE user_id=$2
+      AND asset_id=$3
+      `,
+      [
+        tradeValue.toFixed(18),
+        sellerOrder.user_id,
+        quoteAsset.id
+      ]
+    );
+
+    /*
+      BUYER quote handling.
+
+      Limit buyer:
+      quote was locked at its limit price.
+      We consume the actual trade value.
+
+      Market buyer:
+      quote comes from available.
+    */
+
+    if (buyerOrder.order_type === "limit") {
+      await client.query(
+        `
+        UPDATE vlx_balances
+        SET locked=locked-$1
+        WHERE user_id=$2
+        AND asset_id=$3
+        `,
+        [
+          tradeValue.toFixed(18),
+          buyerOrder.user_id,
+          quoteAsset.id
+        ]
+      );
+
+      /*
+        If buyer limit price was higher than maker price,
+        return the unused price difference.
+      */
+
+      const reservedPrice =
+        new Decimal(String(buyerOrder.price));
+
+      const reservedForTrade =
+        tradeQuantity.mul(reservedPrice);
+
+      const refund =
+        reservedForTrade.minus(tradeValue);
+
+      if (refund.gt(0)) {
+        await client.query(
+          `
+          UPDATE vlx_balances
+          SET locked=locked-$1,
+              available=available+$1
+          WHERE user_id=$2
+          AND asset_id=$3
+          `,
+          [
+            refund.toFixed(18),
+            buyerOrder.user_id,
+            quoteAsset.id
+          ]
+        );
+      }
+
+    } else {
+      await client.query(
+        `
+        UPDATE vlx_balances
+        SET available=available-$1
+        WHERE user_id=$2
+        AND asset_id=$3
+        `,
+        [
+          tradeValue.toFixed(18),
+          buyerOrder.user_id,
+          quoteAsset.id
+        ]
+      );
+    }
+
+    /*
+      Update order fill quantities.
+    */
+
+    const newTakerFilled =
+      new Decimal(String(taker.filled_quantity || 0))
+        .plus(tradeQuantity);
+
+    const newMakerFilled =
+      new Decimal(String(maker.filled_quantity || 0))
+        .plus(tradeQuantity);
+
+    const makerRemainingAfter =
+      new Decimal(String(maker.quantity))
+        .minus(newMakerFilled);
+
+    const takerRemainingAfter =
+      new Decimal(String(taker.quantity))
+        .minus(newTakerFilled);
+
+    const makerStatus =
+      makerRemainingAfter.lte(0)
+        ? "filled"
+        : "partially_filled";
+
+    const takerStatus =
+      takerRemainingAfter.lte(0)
+        ? "filled"
+        : "partially_filled";
+
+    await client.query(
+      `
+      UPDATE vlx_orders
+      SET filled_quantity=$1,
+          status=$2
+      WHERE id=$3
+      `,
+      [
+        newMakerFilled.toFixed(18),
+        makerStatus,
+        maker.id
+      ]
+    );
+
+    await client.query(
+      `
+      UPDATE vlx_orders
+      SET filled_quantity=$1,
+          status=$2
+      WHERE id=$3
+      `,
+      [
+        newTakerFilled.toFixed(18),
+        takerStatus,
+        taker.id
+      ]
+    );
+
+    /*
+      Record trade.
+    */
+
+    await client.query(
+      `
+      INSERT INTO vlx_trades
+      (
+        symbol,
+        buy_order_id,
+        sell_order_id,
+        buyer_id,
+        seller_id,
+        price,
+        quantity
+      )
+      VALUES($1,$2,$3,$4,$5,$6,$7)
+      `,
+      [
+        taker.symbol,
+        buyerOrder.id,
+        sellerOrder.id,
+        buyerOrder.user_id,
+        sellerOrder.user_id,
+        tradePrice.toFixed(18),
+        tradeQuantity.toFixed(18)
+      ]
+    );
+
+    await ledger(
+      client,
+      buyerOrder.user_id,
+      baseAsset.id,
+      tradeQuantity.toFixed(18),
+      "trade_buy",
+      String(taker.id),
+      `Bought ${base} on ${taker.symbol}`
+    );
+
+    await ledger(
+      client,
+      sellerOrder.user_id,
+      quoteAsset.id,
+      tradeValue.toFixed(18),
+      "trade_sell",
+      String(taker.id),
+      `Sold ${base} on ${taker.symbol}`
+    );
+
+    filledTotal = filledTotal.plus(
+      tradeQuantity
+    );
+
+    remaining = remaining.minus(
+      tradeQuantity
+    );
+
+    /*
+      Refresh taker state for next match.
+    */
+
+    taker.filled_quantity =
+      newTakerFilled.toFixed(18);
+
+    taker.status = takerStatus;
+
+    if (remaining.lte(0)) {
+      break;
+    }
+  }
+
+  /*
+    Market order with unfilled quantity:
+    cancel remaining amount and unlock/refund.
+  */
+
+  if (
+    taker.order_type === "market" &&
+    remaining.gt(0) &&
+    isOpenOrder(taker)
+  ) {
+    const { base: marketBase, quote: marketQuote } =
+      splitPair(taker.symbol);
+
+    const marketBaseAsset =
+      await getAsset(client, marketBase);
+
+    const marketQuoteAsset =
+      await getAsset(client, marketQuote);
+
+    if (taker.side === "sell") {
+      const balance = await getBalanceForUpdate(
+        client,
+        taker.user_id,
+        marketBaseAsset.id
+      );
+
+      /*
+        Remaining market-sell base was locked.
+      */
+
+      await client.query(
+        `
+        UPDATE vlx_balances
+        SET locked=locked-$1,
+            available=available+$1
+        WHERE user_id=$2
+        AND asset_id=$3
+        `,
+        [
+          remaining.toFixed(18),
+          taker.user_id,
+          marketBaseAsset.id
+        ]
+      );
+
+    } else {
+      /*
+        For market buy we do not pre-lock funds in this
+        implementation. Any unused available quote stays
+        untouched.
+      */
+    }
+
+    await client.query(
+      `
+      UPDATE vlx_orders
+      SET status='cancelled'
+      WHERE id=$1
+      `,
+      [taker.id]
+    );
+
+    taker.status = "cancelled";
+  }
+
+  return {
+    filled: filledTotal,
+    remaining
+  };
+}
+
+/* =========================================================
+   CREATE ORDER
    ========================================================= */
 
 app.post("/api/orders", async (req, res) => {
@@ -688,11 +1397,19 @@ app.post("/api/orders", async (req, res) => {
 
   if (!user) return;
 
-  const symbol = String(req.body.symbol || "");
-  const side = String(req.body.side || "");
-  const type = String(req.body.orderType || "limit");
-  const price = String(req.body.price || "");
-  const quantity = String(req.body.quantity || "");
+  const symbol = String(req.body.symbol || "").trim();
+  const side = String(req.body.side || "").trim();
+  const orderType = String(
+    req.body.orderType || "limit"
+  ).trim();
+
+  const priceRaw = String(
+    req.body.price || ""
+  ).trim();
+
+  const quantityRaw = String(
+    req.body.quantity || ""
+  ).trim();
 
   if (!validPair(symbol)) {
     return res.status(400).json({
@@ -706,23 +1423,42 @@ app.post("/api/orders", async (req, res) => {
     });
   }
 
-  if (type !== "limit") {
+  if (!["limit", "market"].includes(orderType)) {
     return res.status(400).json({
-      error:
-        "Market orders will be enabled after the matching engine is fully tested"
+      error: "Invalid order type"
     });
   }
 
-  if (!validAmount(price) || !validAmount(quantity)) {
+  if (!validAmount(quantityRaw)) {
     return res.status(400).json({
-      error: "Invalid price or quantity"
+      error: "Invalid quantity"
     });
   }
 
-  if (Number(price) <= 0 || Number(quantity) <= 0) {
+  const quantity = positiveDecimal(quantityRaw);
+
+  if (!quantity) {
     return res.status(400).json({
-      error: "Price and quantity must be positive"
+      error: "Quantity must be positive"
     });
+  }
+
+  let price = null;
+
+  if (orderType === "limit") {
+    if (!validAmount(priceRaw)) {
+      return res.status(400).json({
+        error: "Invalid price"
+      });
+    }
+
+    price = positiveDecimal(priceRaw);
+
+    if (!price) {
+      return res.status(400).json({
+        error: "Price must be positive"
+      });
+    }
   }
 
   const client = await pool.connect();
@@ -730,108 +1466,259 @@ app.post("/api/orders", async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    const [base, quote] = symbol.split("/");
-
-    const assetResult = await client.query(
-      `
-      SELECT id,symbol
-      FROM vlx_assets
-      WHERE symbol IN ($1,$2)
-      `,
-      [base, quote]
-    );
-
-    if (assetResult.rows.length !== 2) {
-      throw new Error("Asset not found");
-    }
-
-    const baseAsset = assetResult.rows.find(
-      x => x.symbol === base
-    );
-
-    const quoteAsset = assetResult.rows.find(
-      x => x.symbol === quote
-    );
-
-    const balanceAsset =
-      side === "buy"
-        ? quoteAsset
-        : baseAsset;
-
-    const required =
-      side === "buy"
-        ? Number(price) * Number(quantity)
-        : Number(quantity);
-
-    const balance = await client.query(
-      `
-      SELECT available
-      FROM vlx_balances
-      WHERE user_id=$1
-      AND asset_id=$2
-      FOR UPDATE
-      `,
-      [user.id, balanceAsset.id]
-    );
-
-    if (!balance.rows.length) {
-      throw new Error("Balance not found");
-    }
-
-    if (
-      Number(balance.rows[0].available) <
-      required
-    ) {
-      throw new Error(
-        `Insufficient ${balanceAsset.symbol} balance`
-      );
-    }
+    /*
+      One matching lock per trading pair.
+    */
 
     await client.query(
-      `
-      UPDATE vlx_balances
-      SET available=available-$1,
-          locked=locked+$1
-      WHERE user_id=$2
-      AND asset_id=$3
-      `,
-      [
-        required,
-        user.id,
-        balanceAsset.id
-      ]
+      `SELECT pg_advisory_xact_lock(hashtext($1))`,
+      [symbol]
     );
 
-    const order = await client.query(
+    const { base, quote } = splitPair(symbol);
+
+    const baseAsset = await getAsset(
+      client,
+      base
+    );
+
+    const quoteAsset = await getAsset(
+      client,
+      quote
+    );
+
+    if (!baseAsset || !quoteAsset) {
+      throw new Error("Trading asset not found");
+    }
+
+    /*
+      VLX is planned until listing date.
+      Prevent normal VLX trading before listing.
+    */
+
+    if (base === "VLX") {
+      const listingTime =
+        new Date(LISTING_DATE).getTime();
+
+      if (Date.now() < listingTime) {
+        throw new Error(
+          "VLX trading is not open yet. Listing is planned for 24 November 2026."
+        );
+      }
+    }
+
+    /*
+      Check and lock user's funds.
+    */
+
+    if (side === "sell") {
+      const balance = await getBalanceForUpdate(
+        client,
+        user.id,
+        baseAsset.id
+      );
+
+      if (
+        new Decimal(String(balance.available))
+          .lt(quantity)
+      ) {
+        throw new Error(
+          `Insufficient ${base} balance`
+        );
+      }
+
+      /*
+        Limit and market sells lock base quantity.
+      */
+
+      await client.query(
+        `
+        UPDATE vlx_balances
+        SET available=available-$1,
+            locked=locked+$1
+        WHERE user_id=$2
+        AND asset_id=$3
+        `,
+        [
+          quantity.toFixed(18),
+          user.id,
+          baseAsset.id
+        ]
+      );
+
+    } else {
+      /*
+        LIMIT BUY:
+        lock price * quantity.
+
+        MARKET BUY:
+        We do not know final cost yet.
+        Therefore require available quote balance
+        and reserve it conservatively using the
+        best available ask if one exists.
+      */
+
+      if (orderType === "limit") {
+        const required =
+          price.mul(quantity);
+
+        const balance =
+          await getBalanceForUpdate(
+            client,
+            user.id,
+            quoteAsset.id
+          );
+
+        if (
+          new Decimal(String(balance.available))
+            .lt(required)
+        ) {
+          throw new Error(
+            `Insufficient ${quote} balance`
+          );
+        }
+
+        await client.query(
+          `
+          UPDATE vlx_balances
+          SET available=available-$1,
+              locked=locked+$1
+          WHERE user_id=$2
+          AND asset_id=$3
+          `,
+          [
+            required.toFixed(18),
+            user.id,
+            quoteAsset.id
+          ]
+        );
+
+      } else {
+        /*
+          Market buy uses the current lowest ask
+          to calculate the maximum expected cost.
+        */
+
+        const ask = await client.query(
+          `
+          SELECT price
+          FROM vlx_orders
+          WHERE symbol=$1
+          AND side='sell'
+          AND status IN ('open','partially_filled')
+          AND user_id<>$2
+          ORDER BY price ASC,created_at ASC,id ASC
+          LIMIT 1
+          `,
+          [symbol, user.id]
+        );
+
+        if (!ask.rows.length) {
+          throw new Error(
+            "No sell orders available for this market buy"
+          );
+        }
+
+        const estimatedCost =
+          new Decimal(String(ask.rows[0].price))
+            .mul(quantity);
+
+        const balance =
+          await getBalanceForUpdate(
+            client,
+            user.id,
+            quoteAsset.id
+          );
+
+        if (
+          new Decimal(String(balance.available))
+            .lt(estimatedCost)
+        ) {
+          throw new Error(
+            `Insufficient ${quote} balance`
+          );
+        }
+      }
+    }
+
+    const orderResult = await client.query(
       `
       INSERT INTO vlx_orders
-      (user_id,symbol,side,order_type,price,quantity)
-      VALUES($1,$2,$3,$4,$5,$6)
+      (
+        user_id,
+        symbol,
+        side,
+        order_type,
+        price,
+        quantity,
+        filled_quantity,
+        status
+      )
+      VALUES($1,$2,$3,$4,$5,$6,0,'open')
       RETURNING *
       `,
       [
         user.id,
         symbol,
         side,
-        type,
-        price,
-        quantity
+        orderType,
+        price
+          ? price.toFixed(18)
+          : null,
+        quantity.toFixed(18)
       ]
     );
+
+    const order = orderResult.rows[0];
+
+    await audit(
+      client,
+      user.id,
+      "order_created",
+      req.ip,
+      {
+        orderId: order.id,
+        symbol,
+        side,
+        orderType
+      }
+    );
+
+    /*
+      Run matching engine inside same transaction.
+    */
+
+    await matchOrder(
+      client,
+      order.id
+    );
+
+    const finalOrderResult =
+      await client.query(
+        `
+        SELECT *
+        FROM vlx_orders
+        WHERE id=$1
+        `,
+        [order.id]
+      );
 
     await client.query("COMMIT");
 
     res.status(201).json({
       ok: true,
-      order: order.rows[0],
-      message:
-        "Order created. Matching engine will execute it when a matching order is available."
+      order: finalOrderResult.rows[0]
     });
 
   } catch (err) {
-    await client.query("ROLLBACK");
+    try {
+      await client.query("ROLLBACK");
+    } catch {}
 
-    console.error("ORDER ERROR:", err.message);
+    console.error(
+      "ORDER ERROR:",
+      err.message
+    );
 
     res.status(400).json({
       error: err.message
@@ -843,7 +1730,162 @@ app.post("/api/orders", async (req, res) => {
 });
 
 /* =========================================================
-   ORDERS
+   CANCEL ORDER
+   ========================================================= */
+
+app.delete("/api/orders/:id", async (req, res) => {
+  const user = await auth(req, res);
+
+  if (!user) return;
+
+  const orderId = Number(req.params.id);
+
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    return res.status(400).json({
+      error: "Invalid order ID"
+    });
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const orderResult = await client.query(
+      `
+      SELECT *
+      FROM vlx_orders
+      WHERE id=$1
+      AND user_id=$2
+      FOR UPDATE
+      `,
+      [orderId, user.id]
+    );
+
+    if (!orderResult.rows.length) {
+      throw new Error("Order not found");
+    }
+
+    const order = orderResult.rows[0];
+
+    if (!isOpenOrder(order)) {
+      throw new Error(
+        "Only open orders can be cancelled"
+      );
+    }
+
+    const { base, quote } =
+      splitPair(order.symbol);
+
+    const baseAsset =
+      await getAsset(client, base);
+
+    const quoteAsset =
+      await getAsset(client, quote);
+
+    const remaining =
+      remainingQuantity(order);
+
+    if (remaining.gt(0)) {
+      if (order.side === "sell") {
+        /*
+          Unlock remaining base.
+        */
+
+        await client.query(
+          `
+          UPDATE vlx_balances
+          SET locked=locked-$1,
+              available=available+$1
+          WHERE user_id=$2
+          AND asset_id=$3
+          `,
+          [
+            remaining.toFixed(18),
+            user.id,
+            baseAsset.id
+          ]
+        );
+
+      } else if (
+        order.side === "buy" &&
+        order.order_type === "limit"
+      ) {
+        /*
+          Unlock remaining quote based on
+          original limit price.
+        */
+
+        const unlock =
+          remaining.mul(
+            new Decimal(String(order.price))
+          );
+
+        await client.query(
+          `
+          UPDATE vlx_balances
+          SET locked=locked-$1,
+              available=available+$1
+          WHERE user_id=$2
+          AND asset_id=$3
+          `,
+          [
+            unlock.toFixed(18),
+            user.id,
+            quoteAsset.id
+          ]
+        );
+      }
+    }
+
+    await client.query(
+      `
+      UPDATE vlx_orders
+      SET status='cancelled'
+      WHERE id=$1
+      `,
+      [order.id]
+    );
+
+    await audit(
+      client,
+      user.id,
+      "order_cancelled",
+      req.ip,
+      {
+        orderId: order.id,
+        symbol: order.symbol
+      }
+    );
+
+    await client.query("COMMIT");
+
+    res.json({
+      ok: true,
+      message: "Order cancelled"
+    });
+
+  } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch {}
+
+    console.error(
+      "CANCEL ERROR:",
+      err.message
+    );
+
+    res.status(400).json({
+      error: err.message
+    });
+
+  } finally {
+    client.release();
+  }
+});
+
+/* =========================================================
+   USER ORDERS
    ========================================================= */
 
 app.get("/api/orders", async (req, res) => {
@@ -854,7 +1896,10 @@ app.get("/api/orders", async (req, res) => {
   try {
     const result = await pool.query(
       `
-      SELECT *
+      SELECT
+        *,
+        (quantity-filled_quantity)
+        AS remaining_quantity
       FROM vlx_orders
       WHERE user_id=$1
       ORDER BY id DESC
@@ -866,7 +1911,10 @@ app.get("/api/orders", async (req, res) => {
     res.json(result.rows);
 
   } catch (err) {
-    console.error("ORDERS ERROR:", err.message);
+    console.error(
+      "ORDERS ERROR:",
+      err.message
+    );
 
     res.status(500).json({
       error: "Failed to load orders"
@@ -890,7 +1938,10 @@ app.get("/api/trades/:symbol", async (req, res) => {
   try {
     const result = await pool.query(
       `
-      SELECT price,quantity,created_at
+      SELECT
+        price,
+        quantity,
+        created_at
       FROM vlx_trades
       WHERE symbol=$1
       ORDER BY id DESC
@@ -899,10 +1950,16 @@ app.get("/api/trades/:symbol", async (req, res) => {
       [symbol]
     );
 
-    res.json(result.rows);
+    res.json({
+      symbol,
+      trades: result.rows
+    });
 
   } catch (err) {
-    console.error("TRADES ERROR:", err.message);
+    console.error(
+      "TRADES ERROR:",
+      err.message
+    );
 
     res.status(500).json({
       error: "Failed to load trades"
@@ -911,24 +1968,569 @@ app.get("/api/trades/:symbol", async (req, res) => {
 });
 
 /* =========================================================
-   VLX LISTING COUNTDOWN
+   MARKET SUMMARY
+   ========================================================= */
+
+app.get("/api/market/:symbol", async (req, res) => {
+  const symbol = req.params.symbol;
+
+  if (!validPair(symbol)) {
+    return res.status(400).json({
+      error: "Invalid trading pair"
+    });
+  }
+
+  try {
+    const latest = await pool.query(
+      `
+      SELECT
+        price,
+        quantity,
+        created_at
+      FROM vlx_trades
+      WHERE symbol=$1
+      ORDER BY id DESC
+      LIMIT 1
+      `,
+      [symbol]
+    );
+
+    const high = await pool.query(
+      `
+      SELECT MAX(price) AS high
+      FROM vlx_trades
+      WHERE symbol=$1
+      AND created_at >= NOW()-INTERVAL '24 hours'
+      `,
+      [symbol]
+    );
+
+    const low = await pool.query(
+      `
+      SELECT MIN(price) AS low
+      FROM vlx_trades
+      WHERE symbol=$1
+      AND created_at >= NOW()-INTERVAL '24 hours'
+      `,
+      [symbol]
+    );
+
+    const volume = await pool.query(
+      `
+      SELECT
+        COALESCE(
+          SUM(price * quantity),
+          0
+        ) AS volume
+      FROM vlx_trades
+      WHERE symbol=$1
+      AND created_at >= NOW()-INTERVAL '24 hours'
+      `,
+      [symbol]
+    );
+
+    res.json({
+      symbol,
+      lastPrice:
+        latest.rows[0]?.price || null,
+      lastQuantity:
+        latest.rows[0]?.quantity || null,
+      high24h:
+        high.rows[0]?.high || null,
+      low24h:
+        low.rows[0]?.low || null,
+      volume24h:
+        volume.rows[0]?.volume || "0"
+    });
+
+  } catch (err) {
+    console.error(
+      "MARKET ERROR:",
+      err.message
+    );
+
+    res.status(500).json({
+      error: "Failed to load market"
+    });
+  }
+});
+
+/* =========================================================
+   VLX LISTING
    ========================================================= */
 
 app.get("/api/listing", (req, res) => {
-  const listing = new Date(
-    "2026-11-24T00:00:00Z"
-  );
+  const listing =
+    new Date(LISTING_DATE);
+
+  const now =
+    new Date();
 
   res.json({
     symbol: "VLX",
-    listingDateUTC: listing.toISOString(),
-    nowUTC: new Date().toISOString(),
-    remainingMilliseconds: Math.max(
-      0,
-      listing.getTime() - Date.now()
-    )
+    status:
+      now.getTime() >= listing.getTime()
+        ? "listed"
+        : "planned",
+    listingDateUTC:
+      listing.toISOString(),
+    nowUTC:
+      now.toISOString(),
+    remainingMilliseconds:
+      Math.max(
+        0,
+        listing.getTime() - now.getTime()
+      )
   });
 });
+
+/* =========================================================
+   DEPOSIT STATUS
+   ========================================================= */
+
+app.get(
+  "/api/deposits",
+  async (req, res) => {
+    const user = await auth(req, res);
+
+    if (!user) return;
+
+    try {
+      const result = await pool.query(
+        `
+        SELECT
+          d.*,
+          a.symbol,
+          a.name
+        FROM vlx_deposits d
+        JOIN vlx_assets a
+          ON a.id=d.asset_id
+        WHERE d.user_id=$1
+        ORDER BY d.id DESC
+        LIMIT 100
+        `,
+        [user.id]
+      );
+
+      res.json({
+        deposits: result.rows,
+        blockchainEnabled: false,
+        message:
+          "On-chain deposits are not enabled yet."
+      });
+
+    } catch (err) {
+      console.error(
+        "DEPOSITS ERROR:",
+        err.message
+      );
+
+      res.status(500).json({
+        error: "Failed to load deposits"
+      });
+    }
+  }
+);
+
+/* =========================================================
+   WITHDRAWAL STATUS
+   ========================================================= */
+
+app.get(
+  "/api/withdrawals",
+  async (req, res) => {
+    const user = await auth(req, res);
+
+    if (!user) return;
+
+    try {
+      const result = await pool.query(
+        `
+        SELECT
+          w.*,
+          a.symbol,
+          a.name
+        FROM vlx_withdrawals w
+        JOIN vlx_assets a
+          ON a.id=w.asset_id
+        WHERE w.user_id=$1
+        ORDER BY w.id DESC
+        LIMIT 100
+        `,
+        [user.id]
+      );
+
+      res.json({
+        withdrawals: result.rows,
+        blockchainEnabled: false,
+        message:
+          "On-chain withdrawals are not enabled yet."
+      });
+
+    } catch (err) {
+      console.error(
+        "WITHDRAWALS ERROR:",
+        err.message
+      );
+
+      res.status(500).json({
+        error: "Failed to load withdrawals"
+      });
+    }
+  }
+);
+
+/* =========================================================
+   TELEGRAM MINER CREDIT
+   ========================================================= */
+
+app.post(
+  "/api/miner/credit",
+  async (req, res) => {
+    const secret =
+      String(
+        process.env.MINER_API_SECRET || ""
+      ).trim();
+
+    if (!secret) {
+      return res.status(503).json({
+        error:
+          "Miner credit system is not configured"
+      });
+    }
+
+    const telegramUserId =
+      String(
+        req.body.telegramUserId || ""
+      ).trim();
+
+    const amountRaw =
+      String(
+        req.body.amount || ""
+      ).trim();
+
+    const requestId =
+      String(
+        req.body.requestId || ""
+      ).trim();
+
+    const signature =
+      String(
+        req.body.signature || ""
+      ).trim();
+
+    if (
+      !telegramUserId ||
+      !amountRaw ||
+      !requestId ||
+      !signature
+    ) {
+      return res.status(400).json({
+        error: "Missing required fields"
+      });
+    }
+
+    const amount =
+      positiveDecimal(amountRaw);
+
+    if (!amount) {
+      return res.status(400).json({
+        error: "Invalid amount"
+      });
+    }
+
+    const message =
+      `${telegramUserId}:${amount.toFixed(18)}:${requestId}`;
+
+    const expected =
+      crypto
+        .createHmac(
+          "sha256",
+          secret
+        )
+        .update(message)
+        .digest("hex");
+
+    if (
+      signature.length !== expected.length ||
+      !crypto.timingSafeEqual(
+        Buffer.from(signature),
+        Buffer.from(expected)
+      )
+    ) {
+      return res.status(401).json({
+        error: "Invalid signature"
+      });
+    }
+
+    const client =
+      await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      /*
+        Idempotency:
+        do not credit same request twice.
+      */
+
+      const duplicate =
+        await client.query(
+          `
+          SELECT id
+          FROM vlx_ledger_entries
+          WHERE type='miner_credit'
+          AND reference_id=$1
+          LIMIT 1
+          `,
+          [requestId]
+        );
+
+      if (duplicate.rows.length) {
+        await client.query("ROLLBACK");
+
+        return res.json({
+          ok: true,
+          duplicate: true,
+          message:
+            "Request already processed"
+        });
+      }
+
+      const user =
+        await client.query(
+          `
+          SELECT *
+          FROM vlx_users
+          WHERE telegram_user_id=$1
+          LIMIT 1
+          `,
+          [telegramUserId]
+        );
+
+      if (!user.rows.length) {
+        throw new Error(
+          "Telegram user is not linked to a VELTRIX account"
+        );
+      }
+
+      const vlx =
+        await getAsset(
+          client,
+          "VLX"
+        );
+
+      if (!vlx) {
+        throw new Error(
+          "VLX asset not found"
+        );
+      }
+
+      const balance =
+        await getBalanceForUpdate(
+          client,
+          user.rows[0].id,
+          vlx.id
+        );
+
+      await client.query(
+        `
+        UPDATE vlx_balances
+        SET available=available+$1
+        WHERE user_id=$2
+        AND asset_id=$3
+        `,
+        [
+          amount.toFixed(18),
+          user.rows[0].id,
+          vlx.id
+        ]
+      );
+
+      await ledger(
+        client,
+        user.rows[0].id,
+        vlx.id,
+        amount.toFixed(18),
+        "miner_credit",
+        requestId,
+        "VELTRIX Telegram Miner credit"
+      );
+
+      await audit(
+        client,
+        user.rows[0].id,
+        "miner_credit",
+        req.ip,
+        {
+          telegramUserId,
+          amount:
+            amount.toFixed(18),
+          requestId
+        }
+      );
+
+      await client.query("COMMIT");
+
+      res.json({
+        ok: true,
+        credited:
+          amount.toFixed(18),
+        symbol: "VLX"
+      });
+
+    } catch (err) {
+      try {
+        await client.query(
+          "ROLLBACK"
+        );
+      } catch {}
+
+      console.error(
+        "MINER CREDIT ERROR:",
+        err.message
+      );
+
+      res.status(400).json({
+        error: err.message
+      });
+
+    } finally {
+      client.release();
+    }
+  }
+);
+
+/* =========================================================
+   LINK TELEGRAM ACCOUNT
+   ========================================================= */
+
+app.post(
+  "/api/account/link-telegram",
+  async (req, res) => {
+    const user = await auth(req, res);
+
+    if (!user) return;
+
+    const telegramUserId =
+      String(
+        req.body.telegramUserId || ""
+      ).trim();
+
+    if (!telegramUserId) {
+      return res.status(400).json({
+        error:
+          "Telegram user ID is required"
+      });
+    }
+
+    try {
+      const existing =
+        await pool.query(
+          `
+          SELECT id
+          FROM vlx_users
+          WHERE telegram_user_id=$1
+          AND id<>$2
+          LIMIT 1
+          `,
+          [
+            telegramUserId,
+            user.id
+          ]
+        );
+
+      if (existing.rows.length) {
+        return res.status(409).json({
+          error:
+            "This Telegram account is already linked"
+        });
+      }
+
+      await pool.query(
+        `
+        UPDATE vlx_users
+        SET telegram_user_id=$1
+        WHERE id=$2
+        `,
+        [
+          telegramUserId,
+          user.id
+        ]
+      );
+
+      res.json({
+        ok: true,
+        message:
+          "Telegram account linked"
+      });
+
+    } catch (err) {
+      console.error(
+        "LINK TELEGRAM ERROR:",
+        err.message
+      );
+
+      res.status(500).json({
+        error:
+          "Failed to link Telegram account"
+      });
+    }
+  }
+);
+
+/* =========================================================
+   ADMIN: PENDING WITHDRAWALS
+   ========================================================= */
+
+app.get(
+  "/api/admin/withdrawals",
+  async (req, res) => {
+    const user = await auth(req, res);
+
+    if (!user) return;
+
+    if (user.role !== "admin") {
+      return res.status(403).json({
+        error: "Admin access required"
+      });
+    }
+
+    try {
+      const result =
+        await pool.query(`
+          SELECT
+            w.*,
+            u.email,
+            u.display_name,
+            a.symbol
+          FROM vlx_withdrawals w
+          JOIN vlx_users u
+            ON u.id=w.user_id
+          JOIN vlx_assets a
+            ON a.id=w.asset_id
+          WHERE w.status='pending'
+          ORDER BY w.id ASC
+        `);
+
+      res.json({
+        withdrawals:
+          result.rows
+      });
+
+    } catch (err) {
+      console.error(
+        "ADMIN WITHDRAWALS ERROR:",
+        err.message
+      );
+
+      res.status(500).json({
+        error:
+          "Failed to load withdrawals"
+      });
+    }
+  }
+);
 
 /* =========================================================
    FRONTEND
@@ -945,12 +2547,14 @@ app.get("*", (req, res) => {
 });
 
 /* =========================================================
-   START SERVER
+   START
    ========================================================= */
 
 async function start() {
   try {
-    console.log("Starting VELTRIX EXCHANGE...");
+    console.log(
+      "Starting VELTRIX EXCHANGE..."
+    );
 
     await initDatabase();
 
