@@ -1,674 +1,721 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VELTRIX Exchange</title>
-
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    :root {
-      --bg: #060a12;
-      --panel: #0b111d;
-      --panel2: #101827;
-      --border: #1d293b;
-      --text: #f3f6fb;
-      --muted: #8491a5;
-      --blue: #2997ff;
-      --green: #19c98b;
-      --red: #ff5268;
-      --yellow: #f5bd4f;
-    }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: Inter, Arial, sans-serif;
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-
-    button,
-    input,
-    select {
-      font: inherit;
-    }
-
-    button {
-      cursor: pointer;
-    }
-
-    /* TOP NAV */
-
-    .topbar {
-      height: 64px;
-      border-bottom: 1px solid var(--border);
-      background: #080d17;
-      display: flex;
-      align-items: center;
-      padding: 0 18px;
-      gap: 24px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-    .logo {
-      font-size: 23px;
-      font-weight: 900;
-      letter-spacing: 1px;
-      color: white;
-      white-space: nowrap;
-    }
-
-    .logo span {
-      color: var(--blue);
-    }
-
-    .nav {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    .nav button {
-      background: transparent;
-      border: 0;
-      color: #aeb9ca;
-      padding: 9px 12px;
-      border-radius: 7px;
-    }
-
-    .nav button:hover,
-    .nav button.active {
-      color: white;
-      background: #111b2b;
-    }
-
-    .top-search {
-      margin-left: auto;
-      width: 220px;
-      position: relative;
-    }
-
-    .top-search input {
-      width: 100%;
-      background: #0e1624;
-      border: 1px solid var(--border);
-      color: white;
-      border-radius: 8px;
-      padding: 9px 12px 9px 35px;
-      outline: none;
-    }
-
-    .top-search span {
-      position: absolute;
-      left: 12px;
-      top: 9px;
-      color: var(--muted);
-    }
-
-    .account {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .login-btn,
-    .register-btn {
-      border: 0;
-      border-radius: 7px;
-      padding: 9px 15px;
-      font-weight: 700;
-    }
-
-    .login-btn {
-      background: transparent;
-      color: white;
-    }
-
-    .register-btn {
-      background: var(--blue);
-      color: white;
-    }
-
-    /* MARKET BAR */
-
-    .marketbar {
-      height: 55px;
-      background: #080d17;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      padding: 0 18px;
-      gap: 24px;
-      overflow-x: auto;
-    }
-
-    .pair-selector {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      min-width: 155px;
-    }
-
-    .pair-symbol {
-      font-size: 19px;
-      font-weight: 800;
-    }
-
-    .star {
-      color: var(--yellow);
-      font-size: 19px;
-    }
-
-    .market-stat {
-      min-width: 90px;
-    }
-
-    .market-stat small {
-      display: block;
-      color: var(--muted);
-      font-size: 10px;
-      margin-bottom: 3px;
-    }
-
-    .market-stat strong {
-      font-size: 13px;
-    }
-
-    .green {
-      color: var(--green) !important;
-    }
-
-    .red {
-      color: var(--red) !important;
-    }
-
-    /* MAIN */
-
-    .layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 360px;
-      min-height: calc(100vh - 119px);
-    }
-
-    .left {
-      min-width: 0;
-      border-right: 1px solid var(--border);
-    }
-
-    /* CHART */
-
-    .chart-header {
-      height: 45px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      padding: 0 14px;
-      gap: 16px;
-      overflow-x: auto;
-    }
-
-    .time {
-      background: transparent;
-      border: 0;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .time.active,
-    .time:hover {
-      color: white;
-    }
-
-    .chart-area {
-      height: 430px;
-      background:
-        linear-gradient(rgba(35, 49, 69, .25) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(35, 49, 69, .25) 1px, transparent 1px);
-      background-size: 70px 55px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .chart-label {
-      position: absolute;
-      top: 15px;
-      left: 18px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .chart-message {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      color: #4c5b70;
-      font-size: 14px;
-    }
-
-    /* ORDER BOOK */
-
-    .book {
-      border-top: 1px solid var(--border);
-      background: var(--panel);
-    }
-
-    .section-title {
-      height: 45px;
-      display: flex;
-      align-items: center;
-      padding: 0 15px;
-      font-weight: 700;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .book-head,
-    .book-row {
-      display: grid;
-      grid-template-columns: 1.2fr 1fr 1fr;
-      padding: 0 15px;
-      gap: 10px;
-    }
-
-    .book-head {
-      color: var(--muted);
-      font-size: 10px;
-      padding-top: 10px;
-      padding-bottom: 7px;
-    }
-
-    .book-row {
-      font-size: 11px;
-      height: 24px;
-      align-items: center;
-    }
-
-    .asks .book-row:first-child {
-      margin-top: 3px;
-    }
-
-    .ask-price {
-      color: var(--red);
-    }
-
-    .bid-price {
-      color: var(--green);
-    }
-
-    .spread {
-      padding: 8px 15px;
-      border-top: 1px solid #172235;
-      border-bottom: 1px solid #172235;
-      color: var(--yellow);
-      font-size: 11px;
-    }
-
-    /* RIGHT */
-
-    .right {
-      background: var(--panel);
-      min-width: 0;
-    }
-
-    .trade-tabs {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .trade-tab {
-      flex: 1;
-      padding: 15px 8px;
-      background: transparent;
-      border: 0;
-      color: var(--muted);
-      font-weight: 700;
-    }
-
-    .trade-tab.active {
-      color: white;
-      border-bottom: 2px solid var(--blue);
-    }
-
-    .order-type {
-      display: flex;
-      gap: 18px;
-      padding: 16px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .order-type button {
-      border: 0;
-      background: transparent;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .order-type button.active {
-      color: white;
-    }
-
-    .order-form {
-      padding: 15px;
-    }
-
-    .balance {
-      color: var(--muted);
-      font-size: 11px;
-      margin-bottom: 14px;
-    }
-
-    .input-wrap {
-      position: relative;
-      margin-bottom: 10px;
-    }
-
-    .input-wrap input {
-      width: 100%;
-      background: #080e18;
-      border: 1px solid var(--border);
-      color: white;
-      padding: 13px 65px 13px 12px;
-      border-radius: 7px;
-      outline: none;
-    }
-
-    .input-wrap input:focus {
-      border-color: #2a7bd1;
-    }
-
-    .input-label {
-      position: absolute;
-      right: 12px;
-      top: 12px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .percent {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 5px;
-      margin: 12px 0;
-    }
-
-    .percent button {
-      background: #101827;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      border-radius: 5px;
-      padding: 5px;
-      font-size: 10px;
-    }
-
-    .trade-btn {
-      width: 100%;
-      border: 0;
-      border-radius: 7px;
-      color: white;
-      font-weight: 800;
-      padding: 13px;
-      margin-top: 8px;
-    }
-
-    .buy-btn {
-      background: var(--green);
-    }
-
-    .sell-btn {
-      background: var(--red);
-    }
-
-    .login-required {
-      text-align: center;
-      color: var(--muted);
-      font-size: 12px;
-      margin-top: 12px;
-    }
-
-    /* BOTTOM */
-
-    .bottom {
-      border-top: 1px solid var(--border);
-      background: var(--panel);
-      min-height: 260px;
-    }
-
-    .bottom-tabs {
-      height: 48px;
-      display: flex;
-      gap: 24px;
-      align-items: center;
-      padding: 0 16px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .bottom-tabs button {
-      background: transparent;
-      border: 0;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .bottom-tabs button.active {
-      color: white;
-    }
-
-    .bottom-content {
-      padding: 20px 16px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    .table th,
-    .table td {
-      text-align: left;
-      padding: 11px 8px;
-      border-bottom: 1px solid #121d2c;
-    }
-
-    .table th {
-      color: #6e7b8e;
-      font-weight: 500;
-    }
-
-    /* MOBILE */
-
-    .mobile-nav {
-      display: none;
-    }
-
-    /* MODAL */
-
-    .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, .7);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      padding: 15px;
-    }
-
-    .modal.show {
-      display: flex;
-    }
-
-    .modal-box {
-      width: 390px;
-      max-width: 100%;
-      background: #0c1421;
-      border: 1px solid var(--border);
-      border-radius: 13px;
-      padding: 24px;
-      box-shadow: 0 20px 80px rgba(0,0,0,.5);
-    }
-
-    .modal-title {
-      font-size: 21px;
-      font-weight: 800;
-      margin-bottom: 20px;
-    }
-
-    .modal-box input {
-      width: 100%;
-      background: #080e18;
-      border: 1px solid var(--border);
-      color: white;
-      padding: 13px;
-      border-radius: 7px;
-      margin-bottom: 10px;
-      outline: none;
-    }
-
-    .modal-action {
-      width: 100%;
-      background: var(--blue);
-      border: 0;
-      color: white;
-      padding: 13px;
-      border-radius: 7px;
-      font-weight: 800;
-      margin-top: 5px;
-    }
-
-    .modal-switch {
-      margin-top: 16px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .modal-switch button {
-      border: 0;
-      background: transparent;
-      color: var(--blue);
-    }
-
-    .close-modal {
-      float: right;
-      background: transparent;
-      border: 0;
-      color: var(--muted);
-      font-size: 22px;
-    }
-
-    .status {
-      margin-top: 10px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-
-    /* MOBILE */
-
-    @media (max-width: 850px) {
-
-      .topbar {
-        height: 57px;
-        padding: 0 12px;
-        gap: 10px;
-      }
-
-      .logo {
-        font-size: 19px;
-      }
-
-      .nav {
-        display: none;
-      }
-
-      .top-search {
-        width: 130px;
-      }
-
-      .login-btn {
-        display: none;
-      }
-
-      .register-btn {
-        padding: 8px 10px;
-        font-size: 11px;
-      }
-
-      .marketbar {
-        height: 50px;
-        padding: 0 12px;
-        gap: 15px;
-      }
-
-      .market-stat {
-        min-width: 70px;
-      }
-
-      .layout {
-        display: block;
-      }
-
-      .left {
-        border-right: 0;
-      }
-
-      .chart-area {
-        height: 300px;
-      }
-
-      .right {
-        border-top: 1px solid var(--border);
-      }
-
-      .order-book-mobile {
-        display: block;
-      }
-
-      .bottom {
-        margin-bottom: 62px;
-      }
-
-      .mobile-nav {
-        display: flex;
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        height: 62px;
-        background: #080d17;
-        border-top: 1px solid var(--border);
-        z-index: 200;
-        justify-content: space-around;
-      }
-
-      .mobile-nav button {
-        flex: 1;
-        border: 0;
-        background: transparent;
-        color: var(--muted);
-        font-size: 10px;
-      }
-
-      .mobile-nav button.active {
-        color: var(--blue);
-      }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport"
+      content="width=device-width,initial-scale=1.0">
+
+<title>VELTRIX Exchange</title>
+
+<style>
+
+*{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+
+:root{
+  --bg:#060a12;
+  --panel:#0b111d;
+  --panel2:#101827;
+  --border:#1d293b;
+  --text:#f3f6fb;
+  --muted:#8491a5;
+  --blue:#2997ff;
+  --green:#19c98b;
+  --red:#ff5268;
+  --yellow:#f5bd4f;
+}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:Inter,Arial,sans-serif;
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+button,input,select{
+  font:inherit;
+}
+
+button{
+  cursor:pointer;
+}
+
+button:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+}
+
+/* TOP */
+
+.topbar{
+  height:64px;
+  border-bottom:1px solid var(--border);
+  background:#080d17;
+  display:flex;
+  align-items:center;
+  padding:0 18px;
+  gap:24px;
+  position:sticky;
+  top:0;
+  z-index:100;
+}
+
+.logo{
+  font-size:23px;
+  font-weight:900;
+  letter-spacing:1px;
+  white-space:nowrap;
+}
+
+.logo span{
+  color:var(--blue);
+}
+
+.nav{
+  display:flex;
+  gap:8px;
+}
+
+.nav button{
+  background:transparent;
+  border:0;
+  color:#aeb9ca;
+  padding:9px 12px;
+  border-radius:7px;
+}
+
+.nav button:hover,
+.nav button.active{
+  color:#fff;
+  background:#111b2b;
+}
+
+.top-search{
+  margin-left:auto;
+  width:220px;
+  position:relative;
+}
+
+.top-search input{
+  width:100%;
+  background:#0e1624;
+  border:1px solid var(--border);
+  color:#fff;
+  border-radius:8px;
+  padding:9px 12px 9px 35px;
+  outline:none;
+}
+
+.top-search span{
+  position:absolute;
+  left:12px;
+  top:9px;
+  color:var(--muted);
+}
+
+.account{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.login-btn,
+.register-btn{
+  border:0;
+  border-radius:7px;
+  padding:9px 15px;
+  font-weight:700;
+}
+
+.login-btn{
+  background:transparent;
+  color:#fff;
+}
+
+.register-btn{
+  background:var(--blue);
+  color:#fff;
+}
+
+/* MARKET */
+
+.marketbar{
+  min-height:55px;
+  background:#080d17;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  padding:7px 18px;
+  gap:24px;
+  overflow-x:auto;
+}
+
+.pair-selector{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:155px;
+}
+
+.pair-symbol{
+  font-size:19px;
+  font-weight:800;
+}
+
+.star{
+  color:var(--yellow);
+  font-size:19px;
+}
+
+.market-stat{
+  min-width:90px;
+}
+
+.market-stat small{
+  display:block;
+  color:var(--muted);
+  font-size:10px;
+  margin-bottom:3px;
+}
+
+.market-stat strong{
+  font-size:13px;
+}
+
+.green{
+  color:var(--green)!important;
+}
+
+.red{
+  color:var(--red)!important;
+}
+
+/* MAIN */
+
+.layout{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 360px;
+  min-height:calc(100vh - 119px);
+}
+
+.left{
+  min-width:0;
+  border-right:1px solid var(--border);
+}
+
+/* CHART */
+
+.chart-header{
+  height:45px;
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  padding:0 14px;
+  gap:16px;
+  overflow-x:auto;
+}
+
+.time{
+  background:transparent;
+  border:0;
+  color:var(--muted);
+  font-size:12px;
+}
+
+.time.active,
+.time:hover{
+  color:#fff;
+}
+
+.chart-area{
+  height:430px;
+  background:
+    linear-gradient(
+      rgba(35,49,69,.25) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(35,49,69,.25) 1px,
+      transparent 1px
+    );
+  background-size:70px 55px;
+  position:relative;
+  overflow:hidden;
+}
+
+#chartCanvas{
+  width:100%;
+  height:100%;
+  display:block;
+}
+
+.chart-label{
+  position:absolute;
+  top:15px;
+  left:18px;
+  color:var(--muted);
+  font-size:12px;
+  z-index:2;
+}
+
+.chart-status{
+  position:absolute;
+  right:18px;
+  top:15px;
+  color:#536176;
+  font-size:10px;
+  z-index:2;
+}
+
+/* BOOK */
+
+.book{
+  border-top:1px solid var(--border);
+  background:var(--panel);
+}
+
+.section-title{
+  height:45px;
+  display:flex;
+  align-items:center;
+  padding:0 15px;
+  font-weight:700;
+  border-bottom:1px solid var(--border);
+}
+
+.book-head,
+.book-row{
+  display:grid;
+  grid-template-columns:1.2fr 1fr 1fr;
+  padding:0 15px;
+  gap:10px;
+}
+
+.book-head{
+  color:var(--muted);
+  font-size:10px;
+  padding-top:10px;
+  padding-bottom:7px;
+}
+
+.book-row{
+  font-size:11px;
+  height:24px;
+  align-items:center;
+}
+
+.ask-price{
+  color:var(--red);
+}
+
+.bid-price{
+  color:var(--green);
+}
+
+.spread{
+  padding:8px 15px;
+  border-top:1px solid #172235;
+  border-bottom:1px solid #172235;
+  color:var(--yellow);
+  font-size:11px;
+}
+
+/* RIGHT */
+
+.right{
+  background:var(--panel);
+  min-width:0;
+}
+
+.trade-tabs{
+  display:flex;
+  border-bottom:1px solid var(--border);
+}
+
+.trade-tab{
+  flex:1;
+  padding:15px 8px;
+  background:transparent;
+  border:0;
+  color:var(--muted);
+  font-weight:700;
+}
+
+.trade-tab.active{
+  color:#fff;
+  border-bottom:2px solid var(--blue);
+}
+
+.order-type{
+  display:flex;
+  gap:18px;
+  padding:16px;
+  border-bottom:1px solid var(--border);
+}
+
+.order-type button{
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  font-size:13px;
+}
+
+.order-type button.active{
+  color:#fff;
+}
+
+.order-form{
+  padding:15px;
+}
+
+.balance{
+  color:var(--muted);
+  font-size:11px;
+  margin-bottom:14px;
+}
+
+.input-wrap{
+  position:relative;
+  margin-bottom:10px;
+}
+
+.input-wrap input{
+  width:100%;
+  background:#080e18;
+  border:1px solid var(--border);
+  color:#fff;
+  padding:13px 65px 13px 12px;
+  border-radius:7px;
+  outline:none;
+}
+
+.input-wrap input:focus{
+  border-color:#2a7bd1;
+}
+
+.input-label{
+  position:absolute;
+  right:12px;
+  top:12px;
+  color:var(--muted);
+  font-size:12px;
+}
+
+.percent{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:5px;
+  margin:12px 0;
+}
+
+.percent button{
+  background:#101827;
+  border:1px solid var(--border);
+  color:var(--muted);
+  border-radius:5px;
+  padding:5px;
+  font-size:10px;
+}
+
+.trade-btn{
+  width:100%;
+  border:0;
+  border-radius:7px;
+  color:#fff;
+  font-weight:800;
+  padding:13px;
+  margin-top:8px;
+}
+
+.buy-btn{
+  background:var(--green);
+}
+
+.sell-btn{
+  background:var(--red);
+}
+
+.login-required{
+  text-align:center;
+  color:var(--muted);
+  font-size:12px;
+  margin-top:12px;
+}
+
+/* BOTTOM */
+
+.bottom{
+  border-top:1px solid var(--border);
+  background:var(--panel);
+  min-height:260px;
+}
+
+.bottom-tabs{
+  height:48px;
+  display:flex;
+  gap:24px;
+  align-items:center;
+  padding:0 16px;
+  border-bottom:1px solid var(--border);
+  overflow-x:auto;
+}
+
+.bottom-tabs button{
+  background:transparent;
+  border:0;
+  color:var(--muted);
+  font-size:12px;
+  white-space:nowrap;
+}
+
+.bottom-tabs button.active{
+  color:#fff;
+}
+
+.bottom-content{
+  padding:20px 16px;
+  color:var(--muted);
+  font-size:12px;
+  overflow-x:auto;
+}
+
+.table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:650px;
+}
+
+.table th,
+.table td{
+  text-align:left;
+  padding:11px 8px;
+  border-bottom:1px solid #121d2c;
+}
+
+.table th{
+  color:#6e7b8e;
+  font-weight:500;
+}
+
+.cancel-btn{
+  border:1px solid #3a2330;
+  background:#17101a;
+  color:var(--red);
+  padding:5px 9px;
+  border-radius:5px;
+  font-size:10px;
+}
+
+/* MOBILE */
+
+.mobile-nav{
+  display:none;
+}
+
+/* MODAL */
+
+.modal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.7);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:1000;
+  padding:15px;
+}
+
+.modal.show{
+  display:flex;
+}
+
+.modal-box{
+  width:390px;
+  max-width:100%;
+  background:#0c1421;
+  border:1px solid var(--border);
+  border-radius:13px;
+  padding:24px;
+  box-shadow:0 20px 80px rgba(0,0,0,.5);
+}
+
+.modal-title{
+  font-size:21px;
+  font-weight:800;
+  margin-bottom:20px;
+}
+
+.modal-box input{
+  width:100%;
+  background:#080e18;
+  border:1px solid var(--border);
+  color:#fff;
+  padding:13px;
+  border-radius:7px;
+  margin-bottom:10px;
+  outline:none;
+}
+
+.modal-action{
+  width:100%;
+  background:var(--blue);
+  border:0;
+  color:#fff;
+  padding:13px;
+  border-radius:7px;
+  font-weight:800;
+  margin-top:5px;
+}
+
+.modal-switch{
+  margin-top:16px;
+  text-align:center;
+  color:var(--muted);
+  font-size:12px;
+}
+
+.modal-switch button{
+  border:0;
+  background:transparent;
+  color:var(--blue);
+}
+
+.close-modal{
+  float:right;
+  background:transparent;
+  border:0;
+  color:var(--muted);
+  font-size:22px;
+}
+
+.status{
+  margin-top:10px;
+  font-size:12px;
+  color:var(--muted);
+}
+
+.info-box{
+  background:#0a1320;
+  border:1px solid var(--border);
+  padding:12px;
+  border-radius:7px;
+  margin-bottom:12px;
+  line-height:1.6;
+}
+
+.market-button{
+  background:transparent;
+  color:#78859a;
+  border:1px solid #1d293b;
+  border-radius:6px;
+  padding:7px 9px;
+  font-size:10px;
+  white-space:nowrap;
+}
+
+.market-button.active{
+  background:#14243a;
+  color:#fff;
+}
+
+/* MOBILE */
+
+@media(max-width:850px){
+
+  .topbar{
+    height:57px;
+    padding:0 12px;
+    gap:10px;
+  }
+
+  .logo{
+    font-size:19px;
+  }
+
+  .nav{
+    display:none;
+  }
+
+  .top-search{
+    width:130px;
+  }
+
+  .login-btn{
+    display:none;
+  }
+
+  .register-btn{
+    padding:8px 10px;
+    font-size:11px;
+  }
+
+  .marketbar{
+    min-height:50px;
+    padding:5px 12px;
+    gap:15px;
+  }
+
+  .market-stat{
+    min-width:70px;
+  }
+
+  .layout{
+    display:block;
+  }
+
+  .left{
+    border-right:0;
+  }
+
+  .chart-area{
+    height:300px;
+  }
+
+  .right{
+    border-top:1px solid var(--border);
+  }
+
+  .bottom{
+    margin-bottom:62px;
+  }
+
+  .mobile-nav{
+    display:flex;
+    position:fixed;
+    bottom:0;
+    left:0;
+    right:0;
+    height:62px;
+    background:#080d17;
+    border-top:1px solid var(--border);
+    z-index:200;
+    justify-content:space-around;
+  }
+
+  .mobile-nav button{
+    flex:1;
+    border:0;
+    background:transparent;
+    color:var(--muted);
+    font-size:10px;
+  }
+
+  .mobile-nav button.active{
+    color:var(--blue);
+  }
+
+}
+
+</style>
 </head>
 
 <body>
 
-<!-- TOP NAV -->
 <header class="topbar">
 
   <div class="logo">
@@ -676,36 +723,59 @@
   </div>
 
   <nav class="nav">
-    <button class="active">Markets</button>
-    <button onclick="scrollToTrade()">Trade</button>
-    <button>Assets</button>
-    <button>Orders</button>
+    <button class="active"
+            onclick="showMarketArea()">
+      Markets
+    </button>
+
+    <button onclick="scrollToTrade()">
+      Trade
+    </button>
+
+    <button onclick="showBottom('assets',null)">
+      Assets
+    </button>
+
+    <button onclick="showBottom('orders',null)">
+      Orders
+    </button>
   </nav>
 
   <div class="top-search">
     <span>⌕</span>
-    <input id="marketSearch" placeholder="Search market">
+    <input id="marketSearch"
+           placeholder="Search market">
   </div>
 
   <div class="account">
-    <button class="login-btn" onclick="openAuth('login')">
+
+    <button class="login-btn"
+            onclick="openAuth('login')">
       Log in
     </button>
 
-    <button class="register-btn" onclick="openAuth('register')">
+    <button class="register-btn"
+            onclick="openAuth('register')">
       Register
     </button>
+
   </div>
 
 </header>
 
-
-<!-- MARKET BAR -->
 <section class="marketbar">
 
   <div class="pair-selector">
     <span class="star">☆</span>
-    <span class="pair-symbol" id="pairName">BTC/USDT</span>
+
+    <span class="pair-symbol"
+          id="pairName">
+      BTC/USDT
+    </span>
+  </div>
+
+  <div id="marketButtons"
+       style="display:flex;gap:6px;">
   </div>
 
   <div class="market-stat">
@@ -715,7 +785,10 @@
 
   <div class="market-stat">
     <small>24h Change</small>
-    <strong id="change24" class="green">--</strong>
+    <strong id="change24"
+            class="green">
+      --
+    </strong>
   </div>
 
   <div class="market-stat">
@@ -735,288 +808,315 @@
 
 </section>
 
-
-<!-- MAIN TRADING AREA -->
 <main class="layout">
 
-  <section class="left">
+<section class="left">
 
-    <!-- CHART -->
-    <div class="chart-header">
+  <div class="chart-header">
 
-      <button class="time active">1m</button>
-      <button class="time">5m</button>
-      <button class="time">15m</button>
-      <button class="time">1H</button>
-      <button class="time">4H</button>
-      <button class="time">1D</button>
+    <button class="time active"
+            onclick="setIntervalValue('1m',this)">
+      1m
+    </button>
 
-      <span style="color:#354256;">|</span>
+    <button class="time"
+            onclick="setIntervalValue('5m',this)">
+      5m
+    </button>
 
-      <span style="font-size:11px;color:#647188;">
-        TradingView-style chart
+    <button class="time"
+            onclick="setIntervalValue('15m',this)">
+      15m
+    </button>
+
+    <button class="time"
+            onclick="setIntervalValue('1H',this)">
+      1H
+    </button>
+
+    <button class="time"
+            onclick="setIntervalValue('4H',this)">
+      4H
+    </button>
+
+    <button class="time"
+            onclick="setIntervalValue('1D',this)">
+      1D
+    </button>
+
+    <span style="color:#354256;">|</span>
+
+    <span style="font-size:11px;color:#647188;">
+      VELTRIX Spot
+    </span>
+
+  </div>
+
+  <div class="chart-area">
+
+    <div class="chart-label">
+      <span id="chartPair">
+        BTC/USDT
+      </span>
+      • Spot
+    </div>
+
+    <div class="chart-status"
+         id="chartStatus">
+      Live
+    </div>
+
+    <canvas id="chartCanvas"></canvas>
+
+  </div>
+
+  <section class="book">
+
+    <div class="section-title">
+      Order Book
+    </div>
+
+    <div class="book-head">
+      <span>Price (USDT)</span>
+      <span>Amount</span>
+      <span>Total</span>
+    </div>
+
+    <div id="asks"
+         class="asks">
+    </div>
+
+    <div class="spread">
+      Spread:
+      <span id="spread">--</span>
+    </div>
+
+    <div id="bids"></div>
+
+  </section>
+
+  <section class="bottom">
+
+    <div class="bottom-tabs">
+
+      <button class="active"
+              onclick="showBottom('orders',this)">
+        Open Orders
+      </button>
+
+      <button onclick="showBottom('history',this)">
+        Order History
+      </button>
+
+      <button onclick="showBottom('trades',this)">
+        Trade History
+      </button>
+
+      <button onclick="showBottom('assets',this)">
+        Assets
+      </button>
+
+    </div>
+
+    <div class="bottom-content"
+         id="bottomContent">
+      Login to view your orders.
+    </div>
+
+  </section>
+
+</section>
+
+<aside class="right"
+       id="tradePanel">
+
+  <div class="trade-tabs">
+
+    <button id="buyTab"
+            class="trade-tab active"
+            onclick="setSide('buy')">
+      Buy
+    </button>
+
+    <button id="sellTab"
+            class="trade-tab"
+            onclick="setSide('sell')">
+      Sell
+    </button>
+
+  </div>
+
+  <div class="order-type">
+
+    <button id="limitType"
+            class="active"
+            onclick="setOrderType('limit')">
+      Limit
+    </button>
+
+    <button id="marketType"
+            onclick="setOrderType('market')">
+      Market
+    </button>
+
+  </div>
+
+  <div class="order-form">
+
+    <div class="balance">
+      Available:
+      <strong id="availableBalance">
+        --
+      </strong>
+    </div>
+
+    <div class="input-wrap"
+         id="priceWrap">
+
+      <input id="priceInput"
+             type="number"
+             step="any"
+             placeholder="Price">
+
+      <span class="input-label">
+        USDT
       </span>
 
     </div>
 
-    <div class="chart-area">
+    <div class="input-wrap">
 
-      <div class="chart-label">
-        <span id="chartPair">BTC/USDT</span> • Spot
-      </div>
+      <input id="quantityInput"
+             type="number"
+             step="any"
+             placeholder="Amount">
 
-      <div class="chart-message">
-        Market chart will connect to live trade data
-      </div>
+      <span class="input-label"
+            id="quantityLabel">
+        BTC
+      </span>
 
     </div>
 
+    <div class="percent">
 
-    <!-- ORDER BOOK -->
-    <section class="book">
-
-      <div class="section-title">
-        Order Book
-      </div>
-
-      <div class="book-head">
-        <span>Price (USDT)</span>
-        <span>Amount</span>
-        <span>Total</span>
-      </div>
-
-      <div id="asks" class="asks"></div>
-
-      <div class="spread">
-        Spread: <span id="spread">--</span>
-      </div>
-
-      <div id="bids"></div>
-
-    </section>
-
-
-    <!-- BOTTOM ORDERS -->
-    <section class="bottom">
-
-      <div class="bottom-tabs">
-
-        <button class="active" onclick="showBottom('orders',this)">
-          Open Orders
-        </button>
-
-        <button onclick="showBottom('history',this)">
-          Order History
-        </button>
-
-        <button onclick="showBottom('trades',this)">
-          Trade History
-        </button>
-
-        <button onclick="showBottom('assets',this)">
-          Assets
-        </button>
-
-      </div>
-
-      <div class="bottom-content" id="bottomContent">
-        Login to view your orders.
-      </div>
-
-    </section>
-
-  </section>
-
-
-  <!-- RIGHT TRADE PANEL -->
-  <aside class="right" id="tradePanel">
-
-    <div class="trade-tabs">
-
-      <button
-        id="buyTab"
-        class="trade-tab active"
-        onclick="setSide('buy')">
-        Buy
+      <button onclick="setPercent(25)">
+        25%
       </button>
 
-      <button
-        id="sellTab"
-        class="trade-tab"
-        onclick="setSide('sell')">
-        Sell
+      <button onclick="setPercent(50)">
+        50%
+      </button>
+
+      <button onclick="setPercent(75)">
+        75%
+      </button>
+
+      <button onclick="setPercent(100)">
+        100%
       </button>
 
     </div>
 
+    <div class="input-wrap">
 
-    <div class="order-type">
+      <input id="totalInput"
+             type="number"
+             step="any"
+             placeholder="Total"
+             readonly>
 
-      <button
-        id="limitType"
-        class="active"
-        onclick="setOrderType('limit')">
-        Limit
-      </button>
-
-      <button
-        id="marketType"
-        onclick="setOrderType('market')">
-        Market
-      </button>
+      <span class="input-label"
+            id="totalLabel">
+        USDT
+      </span>
 
     </div>
 
+    <button id="tradeButton"
+            class="trade-btn buy-btn"
+            onclick="submitOrder()">
+      Buy BTC
+    </button>
 
-    <div class="order-form">
-
-      <div class="balance">
-        Available:
-        <strong id="availableBalance">--</strong>
-      </div>
-
-
-      <div class="input-wrap" id="priceWrap">
-
-        <input
-          id="priceInput"
-          type="number"
-          step="any"
-          placeholder="Price">
-
-        <span class="input-label">
-          USDT
-        </span>
-
-      </div>
-
-
-      <div class="input-wrap">
-
-        <input
-          id="quantityInput"
-          type="number"
-          step="any"
-          placeholder="Amount">
-
-        <span class="input-label" id="quantityLabel">
-          BTC
-        </span>
-
-      </div>
-
-
-      <div class="percent">
-
-        <button onclick="setPercent(25)">25%</button>
-        <button onclick="setPercent(50)">50%</button>
-        <button onclick="setPercent(75)">75%</button>
-        <button onclick="setPercent(100)">100%</button>
-
-      </div>
-
-
-      <div class="input-wrap">
-
-        <input
-          id="totalInput"
-          type="number"
-          step="any"
-          placeholder="Total"
-          readonly>
-
-        <span class="input-label">
-          USDT
-        </span>
-
-      </div>
-
-
-      <button
-        id="tradeButton"
-        class="trade-btn buy-btn"
-        onclick="submitOrder()">
-        Buy BTC
-      </button>
-
-
-      <div class="login-required" id="tradeMessage">
-        Login to start trading.
-      </div>
-
+    <div class="login-required"
+         id="tradeMessage">
+      Login to start trading.
     </div>
 
-  </aside>
+  </div>
+
+</aside>
 
 </main>
 
-
-<!-- MOBILE NAV -->
 <nav class="mobile-nav">
 
-  <button class="active" onclick="mobileSection('markets')">
-    ◈<br>Markets
+  <button class="active"
+          onclick="mobileSection('markets')">
+    ◈<br>
+    Markets
   </button>
 
   <button onclick="mobileSection('trade')">
-    ⇄<br>Trade
+    ⇄<br>
+    Trade
   </button>
 
   <button onclick="mobileSection('orders')">
-    ▤<br>Orders
+    ▤<br>
+    Orders
   </button>
 
   <button onclick="mobileSection('assets')">
-    ◇<br>Assets
+    ◇<br>
+    Assets
   </button>
 
   <button onclick="openAuth('login')">
-    ◎<br>Account
+    ◎<br>
+    Account
   </button>
 
 </nav>
 
-
-<!-- AUTH MODAL -->
-<div class="modal" id="authModal">
+<div class="modal"
+     id="authModal">
 
   <div class="modal-box">
 
-    <button class="close-modal" onclick="closeAuth()">×</button>
-
-    <div class="modal-title" id="authTitle">
-      Login
-    </div>
-
-
-    <div id="registerFields" style="display:none">
-
-      <input
-        id="nameInput"
-        type="text"
-        placeholder="Display name">
-
-    </div>
-
-
-    <input
-      id="emailInput"
-      type="email"
-      placeholder="Email">
-
-    <input
-      id="passwordInput"
-      type="password"
-      placeholder="Password">
-
-
-    <button
-      class="modal-action"
-      id="authButton"
-      onclick="submitAuth()">
-      Login
+    <button class="close-modal"
+            onclick="closeAuth()">
+      ×
     </button>
 
+    <div class="modal-title"
+         id="authTitle">
+      Login
+    </div>
+
+    <div id="registerFields"
+         style="display:none">
+
+      <input id="nameInput"
+             type="text"
+             placeholder="Display name">
+
+    </div>
+
+    <input id="emailInput"
+           type="email"
+           placeholder="Email">
+
+    <input id="passwordInput"
+           type="password"
+           placeholder="Password">
+
+    <button class="modal-action"
+            id="authButton"
+            onclick="submitAuth()">
+      Login
+    </button>
 
     <div class="modal-switch">
 
@@ -1030,623 +1130,758 @@
 
     </div>
 
-
-    <div class="status" id="authStatus"></div>
+    <div class="status"
+         id="authStatus">
+    </div>
 
   </div>
 
 </div>
 
-
 <script>
 
-  /* =========================
-     CONFIG
-  ========================= */
+/* =========================================================
+   CONFIG
+========================================================= */
 
-  const API = "";
+const API = "";
 
-  let currentPair = "BTC/USDT";
-  let currentSide = "buy";
-  let currentOrderType = "limit";
+const pairs = [
+  "BTC/USDT",
+  "ETH/USDT",
+  "SOL/USDT",
+  "XRP/USDT",
+  "TON/USDT",
+  "SHIB/USDT",
+  "VLX/USDT"
+];
 
-  let currentUser = null;
-  let balances = [];
+let currentPair = "BTC/USDT";
+let currentSide = "buy";
+let currentOrderType = "limit";
+let currentInterval = "1m";
 
+let currentUser = null;
+let balances = [];
+let candles = [];
 
-  /* =========================
-     HELPERS
-  ========================= */
+/* =========================================================
+   HELPERS
+========================================================= */
 
-  async function api(url, options = {}) {
+function $(id){
+  return document.getElementById(id);
+}
 
-    const response = await fetch(API + url, {
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers || {})
-      },
-      ...options
-    });
+async function api(url,options={}){
 
-    let data;
-
-    try {
-      data = await response.json();
-    } catch {
-      data = {};
-    }
-
-    if (!response.ok) {
-      throw new Error(
-        data.error ||
-        data.message ||
-        "Request failed"
-      );
-    }
-
-    return data;
-  }
-
-
-  function $(id) {
-    return document.getElementById(id);
-  }
-
-
-  function formatNumber(value, decimals = 8) {
-
-    if (value === null || value === undefined || value === "") {
-      return "--";
-    }
-
-    const number = Number(value);
-
-    if (!Number.isFinite(number)) {
-      return "--";
-    }
-
-    return number.toLocaleString(
-      undefined,
+  const response =
+    await fetch(
+      API + url,
       {
-        maximumFractionDigits: decimals
+        credentials:"include",
+        headers:{
+          "Content-Type":"application/json",
+          ...(options.headers || {})
+        },
+        ...options
       }
     );
+
+  let data = {};
+
+  try{
+    data = await response.json();
+  }catch{}
+
+  if(!response.ok){
+
+    throw new Error(
+      data.error ||
+      data.message ||
+      "Request failed"
+    );
+
   }
 
+  return data;
+}
 
-  function baseAsset() {
-    return currentPair.split("/")[0];
+function formatNumber(value,decimals=8){
+
+  if(
+    value === null ||
+    value === undefined ||
+    value === ""
+  ){
+    return "--";
   }
 
+  const n = Number(value);
 
-  function quoteAsset() {
-    return currentPair.split("/")[1];
+  if(!Number.isFinite(n)){
+    return "--";
   }
 
-
-  /* =========================
-     AUTH
-  ========================= */
-
-  let authMode = "login";
-
-
-  function openAuth(mode = "login") {
-
-    authMode = mode;
-
-    $("authModal").classList.add("show");
-
-    updateAuthModal();
-  }
-
-
-  function closeAuth() {
-    $("authModal").classList.remove("show");
-  }
-
-
-  function switchAuth() {
-
-    authMode =
-      authMode === "login"
-        ? "register"
-        : "login";
-
-    updateAuthModal();
-  }
-
-
-  function updateAuthModal() {
-
-    if (authMode === "login") {
-
-      $("authTitle").textContent = "Login";
-
-      $("authButton").textContent = "Login";
-
-      $("registerFields").style.display = "none";
-
-      $("switchText").textContent =
-        "Don't have an account?";
-
-    } else {
-
-      $("authTitle").textContent =
-        "Create VELTRIX Account";
-
-      $("authButton").textContent =
-        "Create Account";
-
-      $("registerFields").style.display =
-        "block";
-
-      $("switchText").textContent =
-        "Already have an account?";
-
+  return n.toLocaleString(
+    undefined,
+    {
+      maximumFractionDigits:decimals
     }
+  );
+}
 
-    $("authStatus").textContent = "";
+function baseAsset(){
+  return currentPair.split("/")[0];
+}
+
+function quoteAsset(){
+  return currentPair.split("/")[1];
+}
+
+function escapeHtml(value){
+
+  return String(value ?? "")
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
+
+/* =========================================================
+   AUTH
+========================================================= */
+
+let authMode = "login";
+
+function openAuth(mode="login"){
+
+  authMode = mode;
+
+  $("authModal")
+    .classList.add("show");
+
+  updateAuthModal();
+}
+
+function closeAuth(){
+
+  $("authModal")
+    .classList.remove("show");
+
+}
+
+function switchAuth(){
+
+  authMode =
+    authMode === "login"
+      ? "register"
+      : "login";
+
+  updateAuthModal();
+}
+
+function updateAuthModal(){
+
+  if(authMode === "login"){
+
+    $("authTitle").textContent =
+      "Login";
+
+    $("authButton").textContent =
+      "Login";
+
+    $("registerFields")
+      .style.display = "none";
+
+    $("switchText").textContent =
+      "Don't have an account?";
+
+  }else{
+
+    $("authTitle").textContent =
+      "Create VELTRIX Account";
+
+    $("authButton").textContent =
+      "Create Account";
+
+    $("registerFields")
+      .style.display = "block";
+
+    $("switchText").textContent =
+      "Already have an account?";
+
   }
 
+  $("authStatus").textContent = "";
 
-  async function submitAuth() {
+}
 
-    const email =
-      $("emailInput").value.trim();
+async function submitAuth(){
 
-    const password =
-      $("passwordInput").value;
+  const email =
+    $("emailInput")
+      .value
+      .trim();
 
-    const name =
-      $("nameInput").value.trim();
+  const password =
+    $("passwordInput")
+      .value;
 
+  const name =
+    $("nameInput")
+      .value
+      .trim();
 
-    if (!email || !password) {
+  if(!email || !password){
 
-      $("authStatus").textContent =
-        "Please enter email and password.";
+    $("authStatus").textContent =
+      "Please enter email and password.";
 
-      return;
-    }
+    return;
+  }
 
+  try{
 
-    try {
+    $("authStatus").textContent =
+      "Processing...";
 
-      $("authStatus").textContent =
-        "Processing...";
+    if(authMode === "login"){
 
-
-      if (authMode === "login") {
-
-        await api("/api/login", {
-
-          method: "POST",
-
-          body: JSON.stringify({
+      await api(
+        "/api/login",
+        {
+          method:"POST",
+          body:JSON.stringify({
             email,
             password
           })
+        }
+      );
 
-        });
+    }else{
 
-      } else {
-
-        await api("/api/register", {
-
-          method: "POST",
-
-          body: JSON.stringify({
+      await api(
+        "/api/register",
+        {
+          method:"POST",
+          body:JSON.stringify({
             email,
             password,
             displayName:
-              name || email.split("@")[0]
+              name ||
+              email.split("@")[0]
           })
-
-        });
-
-      }
-
-
-      closeAuth();
-
-      await loadUser();
-
-    } catch (error) {
-
-      $("authStatus").textContent =
-        error.message;
+        }
+      );
 
     }
 
-  }
+    $("emailInput").value = "";
+    $("passwordInput").value = "";
+    $("nameInput").value = "";
 
+    closeAuth();
 
-  async function loadUser() {
+    await loadUser();
 
-    try {
+  }catch(error){
 
-      const data =
-        await api("/api/me");
-
-      currentUser =
-        data.user || data;
-
-      updateAccountUI();
-
-      await loadBalances();
-
-      await loadOrders();
-
-    } catch {
-
-      currentUser = null;
-
-      updateAccountUI();
-
-    }
+    $("authStatus").textContent =
+      error.message;
 
   }
 
+}
 
-  function updateAccountUI() {
+async function loadUser(){
 
-    const buttons =
-      document.querySelector(".account");
+  try{
 
-    if (!buttons) return;
+    const data =
+      await api("/api/me");
 
+    currentUser =
+      data.user || data;
 
-    if (currentUser) {
+    updateAccountUI();
 
-      buttons.innerHTML = `
-        <button
-          class="login-btn"
-          onclick="logout()">
-          Logout
-        </button>
+    await loadBalances();
 
-        <button
-          class="register-btn"
-          onclick="showBottom('assets',null)">
-          ${escapeHtml(
-            currentUser.display_name ||
-            currentUser.displayName ||
-            "Account"
-          )}
-        </button>
-      `;
+    await loadOrders();
 
-      $("tradeMessage").textContent =
-        "Ready to trade.";
-
-    } else {
-
-      buttons.innerHTML = `
-        <button
-          class="login-btn"
-          onclick="openAuth('login')">
-          Log in
-        </button>
-
-        <button
-          class="register-btn"
-          onclick="openAuth('register')">
-          Register
-        </button>
-      `;
-
-      $("tradeMessage").textContent =
-        "Login to start trading.";
-
-    }
-
-  }
-
-
-  async function logout() {
-
-    try {
-      await api("/api/logout", {
-        method: "POST"
-      });
-    } catch {}
+  }catch{
 
     currentUser = null;
+
     balances = [];
 
     updateAccountUI();
 
-    $("availableBalance").textContent = "--";
-
-    await loadOrders();
   }
 
+}
 
-  /* =========================
-     BALANCES
-  ========================= */
+function updateAccountUI(){
 
-  async function loadBalances() {
+  const account =
+    document.querySelector(".account");
 
-    if (!currentUser) return;
+  if(!account) return;
 
-    try {
+  if(currentUser){
 
-      const data =
-        await api("/api/balances");
+    account.innerHTML = `
+      <button
+        class="login-btn"
+        onclick="logout()">
+        Logout
+      </button>
 
-      balances =
-        data.balances ||
-        data ||
-        [];
+      <button
+        class="register-btn"
+        onclick="showBottom('assets',null)">
+        ${escapeHtml(
+          currentUser.display_name ||
+          "Account"
+        )}
+      </button>
+    `;
 
-      updateAvailableBalance();
+    $("tradeMessage").textContent =
+      "Ready to trade.";
 
-    } catch {
+  }else{
 
-      balances = [];
+    account.innerHTML = `
+      <button
+        class="login-btn"
+        onclick="openAuth('login')">
+        Log in
+      </button>
 
-    }
+      <button
+        class="register-btn"
+        onclick="openAuth('register')">
+        Register
+      </button>
+    `;
+
+    $("tradeMessage").textContent =
+      "Login to start trading.";
 
   }
 
+  updateAvailableBalance();
 
-  function findBalance(symbol) {
+}
 
-    return balances.find(
-      b =>
-        String(
-          b.symbol ||
-          b.asset ||
-          ""
-        ).toUpperCase() ===
-        symbol.toUpperCase()
+async function logout(){
+
+  try{
+
+    await api(
+      "/api/logout",
+      {
+        method:"POST"
+      }
     );
 
+  }catch{}
+
+  currentUser = null;
+  balances = [];
+
+  updateAccountUI();
+
+  $("availableBalance").textContent =
+    "--";
+
+  await loadOrders();
+
+}
+
+/* =========================================================
+   BALANCES
+========================================================= */
+
+async function loadBalances(){
+
+  if(!currentUser) return;
+
+  try{
+
+    const data =
+      await api("/api/balances");
+
+    balances =
+      data.balances || [];
+
+    updateAvailableBalance();
+
+  }catch{
+
+    balances = [];
+
   }
 
+}
 
-  function updateAvailableBalance() {
+function findBalance(symbol){
 
-    if (!currentUser) {
+  return balances.find(
+    b =>
+      String(
+        b.symbol || ""
+      ).toUpperCase() ===
+      symbol.toUpperCase()
+  );
 
-      $("availableBalance").textContent =
-        "--";
+}
 
-      return;
-    }
+function updateAvailableBalance(){
 
+  if(!currentUser){
 
-    const asset =
-      currentSide === "buy"
-        ? quoteAsset()
-        : baseAsset();
+    $("availableBalance")
+      .textContent = "--";
 
-    const balance =
-      findBalance(asset);
-
-    const available =
-      balance
-        ? balance.available
-        : 0;
-
-    $("availableBalance").textContent =
-      `${formatNumber(available)} ${asset}`;
+    return;
 
   }
 
+  const asset =
+    currentSide === "buy"
+      ? quoteAsset()
+      : baseAsset();
 
-  /* =========================
-     MARKETS
-  ========================= */
+  const balance =
+    findBalance(asset);
 
-  const pairs = [
-    "BTC/USDT",
-    "ETH/USDT",
-    "SOL/USDT",
-    "XRP/USDT",
-    "TON/USDT",
-    "SHIB/USDT",
-    "VLX/USDT"
-  ];
+  $("availableBalance")
+    .textContent =
+      `${formatNumber(
+        balance?.available || 0
+      )} ${asset}`;
 
+}
 
-  function createMarketButtons() {
+/* =========================================================
+   MARKETS
+========================================================= */
 
-    /*
-      Market selector is intentionally
-      generated without changing the
-      main terminal structure.
-    */
+function createMarketButtons(){
 
-    const bar =
-      document.querySelector(".marketbar");
+  const container =
+    $("marketButtons");
 
-    const selector =
-      document.createElement("div");
+  container.innerHTML = "";
 
-    selector.style.display = "flex";
-    selector.style.gap = "6px";
+  pairs.forEach(pair => {
 
-    pairs.forEach(pair => {
+    const button =
+      document.createElement("button");
 
-      const button =
-        document.createElement("button");
+    button.className =
+      "market-button";
 
-      button.textContent = pair;
+    button.textContent =
+      pair;
 
-      button.style.background =
-        pair === currentPair
-          ? "#14243a"
-          : "transparent";
+    button.onclick =
+      () => selectPair(pair);
 
-      button.style.color =
-        pair === currentPair
-          ? "#fff"
-          : "#78859a";
+    container.appendChild(button);
 
-      button.style.border =
-        "1px solid #1d293b";
+  });
 
-      button.style.borderRadius =
-        "6px";
+  updateMarketButtons();
 
-      button.style.padding =
-        "7px 9px";
+}
 
-      button.style.fontSize =
-        "10px";
+function updateMarketButtons(){
 
-      button.onclick = () => {
+  document
+    .querySelectorAll(".market-button")
+    .forEach(button => {
 
-        currentPair = pair;
-
-        updatePairUI();
-
-        loadOrderBook();
-
-        loadOrders();
-
-      };
-
-      selector.appendChild(button);
+      button.classList.toggle(
+        "active",
+        button.textContent ===
+        currentPair
+      );
 
     });
 
-    bar.appendChild(selector);
+}
 
-  }
+async function selectPair(pair){
 
+  currentPair = pair;
 
-  function updatePairUI() {
+  updatePairUI();
 
-    $("pairName").textContent =
-      currentPair;
+  updateMarketButtons();
 
-    $("chartPair").textContent =
-      currentPair;
+  await Promise.all([
+    loadOrderBook(),
+    loadMarket(),
+    loadCandles()
+  ]);
+
+  await loadOrders();
+
+}
+
+function updatePairUI(){
+
+  $("pairName").textContent =
+    currentPair;
+
+  $("chartPair").textContent =
+    currentPair;
+
+  $("quantityLabel").textContent =
+    baseAsset();
+
+  updateAvailableBalance();
+
+  updateTradeButton();
+
+  updateInputLabels();
+
+}
+
+function updateInputLabels(){
+
+  if(currentOrderType === "market"){
+
+    if(currentSide === "buy"){
+
+      $("quantityLabel").textContent =
+        quoteAsset();
+
+      $("totalLabel").textContent =
+        quoteAsset();
+
+    }else{
+
+      $("quantityLabel").textContent =
+        baseAsset();
+
+      $("totalLabel").textContent =
+        quoteAsset();
+
+    }
+
+  }else{
 
     $("quantityLabel").textContent =
       baseAsset();
 
-    updateAvailableBalance();
-
-    updateTradeButton();
+    $("totalLabel").textContent =
+      quoteAsset();
 
   }
 
+}
 
-  /* =========================
-     ORDER BOOK
-  ========================= */
+/* =========================================================
+   MARKET DATA
+========================================================= */
 
-  async function loadOrderBook() {
+async function loadMarket(){
 
-    try {
+  try{
 
-      const data =
-        await api(
-          "/api/orderbook/" +
-          encodeURIComponent(currentPair)
-        );
-
-
-      const asks =
-        data.asks || [];
-
-      const bids =
-        data.bids || [];
-
-
-      renderAsks(asks);
-
-      renderBids(bids);
-
-      updateMarketStats(
-        asks,
-        bids
+    const data =
+      await api(
+        "/api/market/" +
+        encodeURIComponent(currentPair)
       );
 
-    } catch (error) {
+    $("lastPrice").textContent =
+      formatNumber(data.lastPrice,8);
 
-      $("asks").innerHTML = "";
+    $("high24").textContent =
+      formatNumber(data.high24h,8);
 
-      $("bids").innerHTML = "";
+    $("low24").textContent =
+      formatNumber(data.low24h,8);
 
-      $("lastPrice").textContent =
+    $("volume24").textContent =
+      formatNumber(data.volume24h,2);
+
+    if(
+      data.change24h !== null &&
+      data.change24h !== undefined
+    ){
+
+      const change =
+        Number(data.change24h);
+
+      $("change24").textContent =
+        `${change >= 0 ? "+" : ""}${formatNumber(change,2)}%`;
+
+      $("change24")
+        .classList.toggle(
+          "green",
+          change >= 0
+        );
+
+      $("change24")
+        .classList.toggle(
+          "red",
+          change < 0
+        );
+
+    }else{
+
+      $("change24").textContent =
         "--";
 
     }
 
-  }
+  }catch{
 
-
-  function renderAsks(asks) {
-
-    const rows =
-      asks
-        .slice()
-        .reverse()
-        .slice(0, 12);
-
-
-    $("asks").innerHTML =
-      rows.map(row => {
-
-        const price =
-          row.price ??
-          row[0];
-
-        const quantity =
-          row.quantity ??
-          row.amount ??
-          row[1];
-
-        const total =
-          Number(price) *
-          Number(quantity);
-
-        return `
-          <div class="book-row">
-            <span class="ask-price">
-              ${formatNumber(price, 8)}
-            </span>
-
-            <span>
-              ${formatNumber(quantity, 8)}
-            </span>
-
-            <span>
-              ${formatNumber(total, 4)}
-            </span>
-          </div>
-        `;
-
-      }).join("");
+    $("lastPrice").textContent =
+      "--";
 
   }
 
+}
 
-  function renderBids(bids) {
+/* =========================================================
+   ORDER BOOK
+========================================================= */
 
-    const rows =
-      bids
-        .slice(0, 12);
+async function loadOrderBook(){
 
+  try{
 
-    $("bids").innerHTML =
-      rows.map(row => {
+    const data =
+      await api(
+        "/api/orderbook/" +
+        encodeURIComponent(currentPair)
+      );
+
+    renderAsks(
+      data.asks || []
+    );
+
+    renderBids(
+      data.bids || []
+    );
+
+    const asks =
+      data.asks || [];
+
+    const bids =
+      data.bids || [];
+
+    if(
+      asks.length &&
+      bids.length
+    ){
+
+      const ask =
+        Number(
+          asks[0].price
+        );
+
+      const bid =
+        Number(
+          bids[0].price
+        );
+
+      $("spread").textContent =
+        formatNumber(
+          ask - bid,
+          8
+        );
+
+      if(
+        !Number($("priceInput").value)
+      ){
+
+        $("priceInput").value =
+          ask.toString();
+
+        calculateTotal();
+
+      }
+
+    }else{
+
+      $("spread").textContent =
+        "--";
+
+    }
+
+  }catch{
+
+    $("asks").innerHTML = "";
+    $("bids").innerHTML = "";
+    $("spread").textContent = "--";
+
+  }
+
+}
+
+function renderAsks(asks){
+
+  const rows =
+    asks
+      .slice()
+      .reverse()
+      .slice(0,12);
+
+  $("asks").innerHTML =
+    rows.map(row => {
+
+      const price =
+        row.price;
+
+      const quantity =
+        row.quantity;
+
+      const total =
+        Number(price) *
+        Number(quantity);
+
+      return `
+        <div class="book-row">
+          <span class="ask-price">
+            ${formatNumber(price,8)}
+          </span>
+
+          <span>
+            ${formatNumber(quantity,8)}
+          </span>
+
+          <span>
+            ${formatNumber(total,4)}
+          </span>
+        </div>
+      `;
+
+    }).join("");
+
+}
+
+function renderBids(bids){
+
+  $("bids").innerHTML =
+    bids
+      .slice(0,12)
+      .map(row => {
 
         const price =
-          row.price ??
-          row[0];
+          row.price;
 
         const quantity =
-          row.quantity ??
-          row.amount ??
-          row[1];
+          row.quantity;
 
         const total =
           Number(price) *
@@ -1655,417 +1890,960 @@
         return `
           <div class="book-row">
             <span class="bid-price">
-              ${formatNumber(price, 8)}
+              ${formatNumber(price,8)}
             </span>
 
             <span>
-              ${formatNumber(quantity, 8)}
+              ${formatNumber(quantity,8)}
             </span>
 
             <span>
-              ${formatNumber(total, 4)}
+              ${formatNumber(total,4)}
             </span>
           </div>
         `;
 
-      }).join("");
+      })
+      .join("");
+
+}
+
+/* =========================================================
+   CHART
+========================================================= */
+
+function setIntervalValue(value,button){
+
+  currentInterval = value;
+
+  document
+    .querySelectorAll(".time")
+    .forEach(btn =>
+      btn.classList.remove("active")
+    );
+
+  button.classList.add("active");
+
+  loadCandles();
+
+}
+
+async function loadCandles(){
+
+  try{
+
+    $("chartStatus").textContent =
+      "Loading";
+
+    const data =
+      await api(
+        "/api/candles/" +
+        encodeURIComponent(currentPair) +
+        "?interval=" +
+        encodeURIComponent(currentInterval) +
+        "&limit=120"
+      );
+
+    candles =
+      data.candles || [];
+
+    drawChart();
+
+    $("chartStatus").textContent =
+      "Live";
+
+  }catch{
+
+    candles = [];
+
+    drawChart();
+
+    $("chartStatus").textContent =
+      "No trades";
 
   }
 
+}
 
-  function updateMarketStats(
-    asks,
-    bids
-  ) {
+function drawChart(){
 
-    const bestAsk =
-      asks[0]?.price ??
-      asks[0]?.[0];
+  const canvas =
+    $("chartCanvas");
 
-    const bestBid =
-      bids[0]?.price ??
-      bids[0]?.[0];
+  const rect =
+    canvas.getBoundingClientRect();
 
+  const ratio =
+    window.devicePixelRatio || 1;
 
-    if (bestAsk && bestBid) {
+  canvas.width =
+    Math.max(
+      1,
+      Math.floor(rect.width * ratio)
+    );
 
-      const mid =
-        (
-          Number(bestAsk) +
-          Number(bestBid)
-        ) / 2;
+  canvas.height =
+    Math.max(
+      1,
+      Math.floor(rect.height * ratio)
+    );
 
-      $("lastPrice").textContent =
-        formatNumber(mid, 8);
+  const ctx =
+    canvas.getContext("2d");
 
-      $("spread").textContent =
-        formatNumber(
-          Number(bestAsk) -
-          Number(bestBid),
-          8
+  ctx.setTransform(
+    ratio,
+    0,
+    0,
+    ratio,
+    0,
+    0
+  );
+
+  const width =
+    rect.width;
+
+  const height =
+    rect.height;
+
+  ctx.clearRect(
+    0,
+    0,
+    width,
+    height
+  );
+
+  if(!candles.length){
+
+    ctx.fillStyle =
+      "#4c5b70";
+
+    ctx.font =
+      "14px Arial";
+
+    ctx.textAlign =
+      "center";
+
+    ctx.fillText(
+      "Waiting for trades...",
+      width / 2,
+      height / 2
+    );
+
+    return;
+
+  }
+
+  const values =
+    candles.flatMap(c => [
+      Number(c.high),
+      Number(c.low)
+    ]);
+
+  let max =
+    Math.max(...values);
+
+  let min =
+    Math.min(...values);
+
+  if(max === min){
+
+    max += 1;
+    min -= 1;
+
+  }
+
+  const padTop = 35;
+  const padBottom = 20;
+  const padLeft = 10;
+  const padRight = 55;
+
+  const chartWidth =
+    width - padLeft - padRight;
+
+  const chartHeight =
+    height - padTop - padBottom;
+
+  function y(value){
+
+    return padTop +
+      (
+        (max - value) /
+        (max - min)
+      ) *
+      chartHeight;
+
+  }
+
+  function x(index){
+
+    return padLeft +
+      (
+        index /
+        Math.max(
+          candles.length - 1,
+          1
+        )
+      ) *
+      chartWidth;
+
+  }
+
+  const step =
+    chartWidth /
+    Math.max(
+      candles.length,
+      1
+    );
+
+  const candleWidth =
+    Math.max(
+      2,
+      Math.min(
+        10,
+        step * .65
+      )
+    );
+
+  candles.forEach(
+    (candle,index) => {
+
+      const open =
+        Number(candle.open);
+
+      const close =
+        Number(candle.close);
+
+      const high =
+        Number(candle.high);
+
+      const low =
+        Number(candle.low);
+
+      const cx =
+        x(index);
+
+      const color =
+        close >= open
+          ? "#19c98b"
+          : "#ff5268";
+
+      ctx.strokeStyle =
+        color;
+
+      ctx.fillStyle =
+        color;
+
+      ctx.lineWidth = 1;
+
+      ctx.beginPath();
+
+      ctx.moveTo(
+        cx,
+        y(high)
+      );
+
+      ctx.lineTo(
+        cx,
+        y(low)
+      );
+
+      ctx.stroke();
+
+      const top =
+        Math.min(
+          y(open),
+          y(close)
         );
 
+      const bottom =
+        Math.max(
+          y(open),
+          y(close)
+        );
+
+      ctx.fillRect(
+        cx - candleWidth / 2,
+        top,
+        candleWidth,
+        Math.max(
+          1,
+          bottom - top
+        )
+      );
+
     }
+  );
+
+  /*
+    Price labels
+  */
+
+  ctx.fillStyle =
+    "#68758a";
+
+  ctx.font =
+    "10px Arial";
+
+  ctx.textAlign =
+    "left";
+
+  for(let i=0;i<5;i++){
+
+    const value =
+      max -
+      (
+        (max - min) *
+        i /
+        4
+      );
+
+    ctx.fillText(
+      formatNumber(value,8),
+      width - 50,
+      padTop +
+      (
+        chartHeight *
+        i /
+        4
+      )
+    );
 
   }
 
+}
 
-  /* =========================
-     TRADING
-  ========================= */
+/* =========================================================
+   TRADING UI
+========================================================= */
 
-  function setSide(side) {
+function setSide(side){
 
-    currentSide = side;
+  currentSide = side;
 
-    $("buyTab")
-      .classList.toggle(
-        "active",
-        side === "buy"
-      );
+  $("buyTab")
+    .classList.toggle(
+      "active",
+      side === "buy"
+    );
 
-    $("sellTab")
-      .classList.toggle(
-        "active",
-        side === "sell"
-      );
+  $("sellTab")
+    .classList.toggle(
+      "active",
+      side === "sell"
+    );
 
-    updateTradeButton();
+  updateTradeButton();
+  updateAvailableBalance();
+  updateInputLabels();
+  calculateTotal();
 
-    updateAvailableBalance();
+}
 
-    calculateTotal();
+function setOrderType(type){
 
-  }
+  currentOrderType = type;
 
+  $("limitType")
+    .classList.toggle(
+      "active",
+      type === "limit"
+    );
 
-  function setOrderType(type) {
+  $("marketType")
+    .classList.toggle(
+      "active",
+      type === "market"
+    );
 
-    currentOrderType = type;
-
-    $("limitType")
-      .classList.toggle(
-        "active",
-        type === "limit"
-      );
-
-    $("marketType")
-      .classList.toggle(
-        "active",
-        type === "market"
-      );
-
-
-    $("priceWrap").style.display =
+  $("priceWrap")
+    .style.display =
       type === "limit"
         ? "block"
         : "none";
 
-    calculateTotal();
+  $("priceInput").value =
+    type === "limit"
+      ? $("priceInput").value
+      : "";
 
-  }
+  updateInputLabels();
 
+  calculateTotal();
 
-  function updateTradeButton() {
+}
 
-    const action =
+function updateTradeButton(){
+
+  const action =
+    currentSide === "buy"
+      ? "Buy"
+      : "Sell";
+
+  $("tradeButton").textContent =
+    `${action} ${baseAsset()}`;
+
+  $("tradeButton")
+    .classList.toggle(
+      "buy-btn",
       currentSide === "buy"
-        ? "Buy"
-        : "Sell";
-
-    $("tradeButton").textContent =
-      `${action} ${baseAsset()}`;
-
-    $("tradeButton")
-      .classList.toggle(
-        "buy-btn",
-        currentSide === "buy"
-      );
-
-    $("tradeButton")
-      .classList.toggle(
-        "sell-btn",
-        currentSide === "sell"
-      );
-
-  }
-
-
-  function calculateTotal() {
-
-    const price =
-      Number($("priceInput").value);
-
-    const quantity =
-      Number($("quantityInput").value);
-
-
-    if (
-      currentOrderType === "limit" &&
-      price > 0 &&
-      quantity > 0
-    ) {
-
-      $("totalInput").value =
-        (price * quantity)
-          .toFixed(8);
-
-    } else {
-
-      $("totalInput").value = "";
-
-    }
-
-  }
-
-
-  function setPercent(percent) {
-
-    if (!currentUser) {
-
-      openAuth("login");
-
-      return;
-
-    }
-
-
-    const asset =
-      currentSide === "buy"
-        ? quoteAsset()
-        : baseAsset();
-
-    const balance =
-      findBalance(asset);
-
-
-    const available =
-      Number(
-        balance?.available || 0
-      );
-
-
-    if (currentSide === "buy") {
-
-      const price =
-        Number(
-          $("priceInput").value
-        );
-
-      if (price > 0) {
-
-        const quantity =
-          (
-            available *
-            percent /
-            100
-          ) / price;
-
-        $("quantityInput").value =
-          quantity.toFixed(8);
-
-      }
-
-    } else {
-
-      $("quantityInput").value =
-        (
-          available *
-          percent /
-          100
-        ).toFixed(8);
-
-    }
-
-    calculateTotal();
-
-  }
-
-
-  $("priceInput")
-    .addEventListener(
-      "input",
-      calculateTotal
     );
 
-  $("quantityInput")
-    .addEventListener(
-      "input",
-      calculateTotal
+  $("tradeButton")
+    .classList.toggle(
+      "sell-btn",
+      currentSide === "sell"
     );
 
+}
 
-  async function submitOrder() {
+function calculateTotal(){
 
-    if (!currentUser) {
+  const first =
+    Number(
+      $("quantityInput").value
+    );
 
-      openAuth("login");
+  const price =
+    Number(
+      $("priceInput").value
+    );
 
-      return;
+  if(
+    currentOrderType === "limit" &&
+    first > 0 &&
+    price > 0
+  ){
 
-    }
+    $("totalInput").value =
+      (
+        first * price
+      ).toFixed(8);
 
+    return;
 
-    const quantity =
-      Number(
-        $("quantityInput").value
-      );
+  }
 
+  if(
+    currentOrderType === "market" &&
+    currentSide === "buy"
+  ){
+
+    $("totalInput").value =
+      first > 0
+        ? first.toFixed(8)
+        : "";
+
+    return;
+
+  }
+
+  $("totalInput").value =
+    "";
+
+}
+
+function setPercent(percent){
+
+  if(!currentUser){
+
+    openAuth("login");
+
+    return;
+
+  }
+
+  const asset =
+    currentSide === "buy"
+      ? quoteAsset()
+      : baseAsset();
+
+  const balance =
+    findBalance(asset);
+
+  const available =
+    Number(
+      balance?.available || 0
+    );
+
+  if(
+    currentOrderType === "market" &&
+    currentSide === "buy"
+  ){
+
+    $("quantityInput").value =
+      (
+        available *
+        percent /
+        100
+      ).toFixed(8);
+
+    calculateTotal();
+
+    return;
+
+  }
+
+  if(currentSide === "buy"){
 
     const price =
       Number(
         $("priceInput").value
       );
 
+    if(price > 0){
 
-    if (
-      !quantity ||
-      quantity <= 0
-    ) {
+      const quantity =
+        (
+          available *
+          percent /
+          100
+        ) / price;
 
-      alert("Enter a valid quantity.");
-
-      return;
-
-    }
-
-
-    if (
-      currentOrderType === "limit" &&
-      (!price || price <= 0)
-    ) {
-
-      alert("Enter a valid price.");
-
-      return;
+      $("quantityInput").value =
+        quantity.toFixed(8);
 
     }
 
+  }else{
 
-    const button =
-      $("tradeButton");
-
-    button.disabled = true;
-
-    button.textContent =
-      "Processing...";
-
-
-    try {
-
-      await api("/api/orders", {
-
-        method: "POST",
-
-        body: JSON.stringify({
-
-          symbol: currentPair,
-
-          side: currentSide,
-
-          orderType:
-            currentOrderType,
-
-          price:
-            currentOrderType === "limit"
-              ? price
-              : null,
-
-          quantity
-
-        })
-
-      });
-
-
-      $("quantityInput").value = "";
-
-      $("totalInput").value = "";
-
-      await loadBalances();
-
-      await loadOrderBook();
-
-      await loadOrders();
-
-
-      alert("Order submitted successfully.");
-
-    } catch (error) {
-
-      alert(error.message);
-
-    } finally {
-
-      button.disabled = false;
-
-      updateTradeButton();
-
-    }
+    $("quantityInput").value =
+      (
+        available *
+        percent /
+        100
+      ).toFixed(8);
 
   }
 
+  calculateTotal();
 
-  /* =========================
-     ORDERS
-  ========================= */
+}
 
-  async function loadOrders() {
+$("priceInput")
+  .addEventListener(
+    "input",
+    calculateTotal
+  );
 
-    if (!currentUser) {
+$("quantityInput")
+  .addEventListener(
+    "input",
+    calculateTotal
+  );
 
-      $("bottomContent").innerHTML =
-        "Login to view your orders.";
+/* =========================================================
+   SUBMIT ORDER
+========================================================= */
 
-      return;
+async function submitOrder(){
 
-    }
+  if(!currentUser){
 
+    openAuth("login");
 
-    try {
-
-      const data =
-        await api(
-          "/api/orders?symbol=" +
-          encodeURIComponent(currentPair)
-        );
-
-
-      const orders =
-        data.orders ||
-        data ||
-        [];
-
-
-      renderOrders(orders);
-
-    } catch {
-
-      $("bottomContent").innerHTML =
-        "Unable to load orders.";
-
-    }
+    return;
 
   }
 
+  const value =
+    Number(
+      $("quantityInput").value
+    );
 
-  function renderOrders(orders) {
+  const price =
+    Number(
+      $("priceInput").value
+    );
 
-    if (!orders.length) {
+  if(!value || value <= 0){
+
+    alert(
+      currentOrderType === "market" &&
+      currentSide === "buy"
+        ? "Enter USDT amount."
+        : "Enter a valid amount."
+    );
+
+    return;
+
+  }
+
+  if(
+    currentOrderType === "limit" &&
+    (!price || price <= 0)
+  ){
+
+    alert(
+      "Enter a valid price."
+    );
+
+    return;
+
+  }
+
+  const button =
+    $("tradeButton");
+
+  button.disabled = true;
+  button.textContent =
+    "Processing...";
+
+  try{
+
+    const payload = {
+      symbol:currentPair,
+      side:currentSide,
+      orderType:currentOrderType
+    };
+
+    if(currentOrderType === "limit"){
+
+      payload.price =
+        price;
+
+      payload.quantity =
+        value;
+
+    }else{
+
+      if(currentSide === "buy"){
+
+        /*
+          Market BUY:
+          value is USDT amount.
+        */
+
+        payload.quoteAmount =
+          value;
+
+        payload.quantity =
+          value;
+
+      }else{
+
+        /*
+          Market SELL:
+          value is base quantity.
+        */
+
+        payload.quantity =
+          value;
+
+      }
+
+    }
+
+    const result =
+      await api(
+        "/api/orders",
+        {
+          method:"POST",
+          body:JSON.stringify(payload)
+        }
+      );
+
+    $("quantityInput").value = "";
+    $("totalInput").value = "";
+
+    await Promise.all([
+      loadBalances(),
+      loadOrderBook(),
+      loadMarket(),
+      loadCandles(),
+      loadOrders()
+    ]);
+
+    alert(
+      result.order?.status === "filled"
+        ? "Trade executed successfully."
+        : "Order submitted successfully."
+    );
+
+  }catch(error){
+
+    alert(
+      error.message
+    );
+
+  }finally{
+
+    button.disabled = false;
+
+    updateTradeButton();
+
+  }
+
+}
+
+/* =========================================================
+   ORDERS
+========================================================= */
+
+async function loadOrders(){
+
+  if(!currentUser){
+
+    $("bottomContent").innerHTML =
+      "Login to view your orders.";
+
+    return;
+
+  }
+
+  try{
+
+    const data =
+      await api(
+        "/api/orders?symbol=" +
+        encodeURIComponent(currentPair)
+      );
+
+    renderOrders(
+      data.orders || []
+    );
+
+  }catch{
+
+    $("bottomContent").innerHTML =
+      "Unable to load orders.";
+
+  }
+
+}
+
+function renderOrders(orders){
+
+  const open =
+    orders.filter(
+      o =>
+        o.status === "open" ||
+        o.status === "partially_filled"
+    );
+
+  if(!open.length){
+
+    $("bottomContent").innerHTML =
+      `
+      <div class="info-box">
+        No open orders for ${escapeHtml(currentPair)}.
+      </div>
+      `;
+
+    return;
+
+  }
+
+  $("bottomContent").innerHTML = `
+
+    <table class="table">
+
+      <thead>
+
+        <tr>
+          <th>Pair</th>
+          <th>Side</th>
+          <th>Type</th>
+          <th>Price</th>
+          <th>Amount</th>
+          <th>Filled</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+
+      </thead>
+
+      <tbody>
+
+        ${open.map(order => `
+
+          <tr>
+
+            <td>
+              ${escapeHtml(order.symbol)}
+            </td>
+
+            <td class="${
+              order.side === "buy"
+                ? "green"
+                : "red"
+            }">
+              ${escapeHtml(order.side)}
+            </td>
+
+            <td>
+              ${escapeHtml(
+                order.order_type
+              )}
+            </td>
+
+            <td>
+              ${formatNumber(order.price)}
+            </td>
+
+            <td>
+              ${formatNumber(order.quantity)}
+            </td>
+
+            <td>
+              ${formatNumber(
+                order.filled_quantity
+              )}
+            </td>
+
+            <td>
+              ${escapeHtml(order.status)}
+            </td>
+
+            <td>
+
+              <button
+                class="cancel-btn"
+                onclick="cancelOrder(${Number(order.id)})">
+                Cancel
+              </button>
+
+            </td>
+
+          </tr>
+
+        `).join("")}
+
+      </tbody>
+
+    </table>
+  `;
+
+}
+
+async function cancelOrder(id){
+
+  if(!confirm(
+    "Cancel this order?"
+  )){
+    return;
+  }
+
+  try{
+
+    await api(
+      "/api/orders/" +
+      encodeURIComponent(id),
+      {
+        method:"DELETE"
+      }
+    );
+
+    await Promise.all([
+      loadBalances(),
+      loadOrderBook(),
+      loadOrders()
+    ]);
+
+  }catch(error){
+
+    alert(
+      error.message
+    );
+
+  }
+
+}
+
+/* =========================================================
+   BOTTOM
+========================================================= */
+
+async function showBottom(type,button){
+
+  if(button){
+
+    document
+      .querySelectorAll(
+        ".bottom-tabs button"
+      )
+      .forEach(
+        btn =>
+          btn.classList.remove(
+            "active"
+          )
+      );
+
+    button.classList.add("active");
+
+  }
+
+  if(!currentUser){
+
+    $("bottomContent").innerHTML =
+      "Login to view this section.";
+
+    return;
+
+  }
+
+  if(type === "orders"){
+
+    await loadOrders();
+
+    return;
+
+  }
+
+  if(type === "assets"){
+
+    renderAssets();
+
+    return;
+
+  }
+
+  if(type === "history"){
+
+    await renderOrderHistory();
+
+    return;
+
+  }
+
+  if(type === "trades"){
+
+    await renderTradeHistory();
+
+    return;
+
+  }
+
+}
+
+async function renderOrderHistory(){
+
+  try{
+
+    const data =
+      await api(
+        "/api/orders?symbol=" +
+        encodeURIComponent(currentPair)
+      );
+
+    const orders =
+      data.orders || [];
+
+    if(!orders.length){
 
       $("bottomContent").innerHTML =
-        "No orders found.";
+        "No order history.";
 
       return;
 
     }
-
 
     $("bottomContent").innerHTML = `
 
       <table class="table">
 
         <thead>
+
           <tr>
             <th>Pair</th>
             <th>Side</th>
@@ -2074,7 +2852,9 @@
             <th>Amount</th>
             <th>Filled</th>
             <th>Status</th>
+            <th>Date</th>
           </tr>
+
         </thead>
 
         <tbody>
@@ -2084,9 +2864,7 @@
             <tr>
 
               <td>
-                ${escapeHtml(
-                  order.symbol || currentPair
-                )}
+                ${escapeHtml(order.symbol)}
               </td>
 
               <td class="${
@@ -2094,43 +2872,33 @@
                   ? "green"
                   : "red"
               }">
-                ${escapeHtml(
-                  order.side || ""
-                )}
+                ${escapeHtml(order.side)}
               </td>
 
               <td>
-                ${escapeHtml(
-                  order.order_type ||
-                  order.orderType ||
-                  ""
-                )}
+                ${escapeHtml(order.order_type)}
               </td>
 
               <td>
-                ${formatNumber(
-                  order.price
-                )}
+                ${formatNumber(order.price)}
               </td>
 
               <td>
-                ${formatNumber(
-                  order.quantity
-                )}
+                ${formatNumber(order.quantity)}
               </td>
 
               <td>
-                ${formatNumber(
-                  order.filled_quantity ||
-                  order.filledQuantity ||
-                  0
-                )}
+                ${formatNumber(order.filled_quantity)}
               </td>
 
               <td>
-                ${escapeHtml(
-                  order.status || ""
-                )}
+                ${escapeHtml(order.status)}
+              </td>
+
+              <td>
+                ${new Date(
+                  order.created_at
+                ).toLocaleString()}
               </td>
 
             </tr>
@@ -2143,124 +2911,94 @@
 
     `;
 
-  }
+  }catch{
 
-
-  function showBottom(type, button) {
-
-    if (button) {
-
-      document
-        .querySelectorAll(".bottom-tabs button")
-        .forEach(btn =>
-          btn.classList.remove("active")
-        );
-
-      button.classList.add("active");
-
-    }
-
-
-    if (!currentUser) {
-
-      $("bottomContent").innerHTML =
-        "Login to view this section.";
-
-      return;
-
-    }
-
-
-    if (type === "orders") {
-
-      loadOrders();
-
-      return;
-
-    }
-
-
-    if (type === "assets") {
-
-      renderAssets();
-
-      return;
-
-    }
-
-
-    if (type === "history") {
-
-      $("bottomContent").innerHTML =
-        "Order history will appear here.";
-
-      return;
-
-    }
-
-
-    if (type === "trades") {
-
-      $("bottomContent").innerHTML =
-        "Trade history will appear here.";
-
-      return;
-
-    }
+    $("bottomContent").innerHTML =
+      "Unable to load order history.";
 
   }
 
+}
 
-  function renderAssets() {
+async function renderTradeHistory(){
 
-    if (!balances.length) {
+  try{
+
+    const data =
+      await api(
+        "/api/my-trades"
+      );
+
+    const trades =
+      data.trades || [];
+
+    if(!trades.length){
 
       $("bottomContent").innerHTML =
-        "No assets found.";
+        "No trade history.";
 
       return;
 
     }
-
 
     $("bottomContent").innerHTML = `
 
       <table class="table">
 
         <thead>
+
           <tr>
-            <th>Asset</th>
-            <th>Available</th>
-            <th>Locked</th>
+            <th>Pair</th>
+            <th>Side</th>
+            <th>Price</th>
+            <th>Amount</th>
+            <th>Total</th>
+            <th>Date</th>
           </tr>
+
         </thead>
 
         <tbody>
 
-          ${balances.map(balance => `
+          ${trades.map(trade => `
 
             <tr>
 
               <td>
-                <strong>
-                  ${escapeHtml(
-                    balance.symbol ||
-                    balance.asset ||
-                    ""
-                  )}
-                </strong>
+                ${escapeHtml(trade.symbol)}
+              </td>
+
+              <td class="${
+                trade.side === "buy"
+                  ? "green"
+                  : "red"
+              }">
+                ${escapeHtml(trade.side)}
               </td>
 
               <td>
                 ${formatNumber(
-                  balance.available
+                  trade.price
                 )}
               </td>
 
               <td>
                 ${formatNumber(
-                  balance.locked
+                  trade.quantity
                 )}
+              </td>
+
+              <td>
+                ${formatNumber(
+                  trade.quote_amount,
+                  4
+                )}
+              </td>
+
+              <td>
+                ${new Date(
+                  trade.created_at
+                ).toLocaleString()}
               </td>
 
             </tr>
@@ -2273,157 +3011,290 @@
 
     `;
 
-  }
+  }catch{
 
-
-  /* =========================
-     MOBILE
-  ========================= */
-
-  function mobileSection(section) {
-
-    if (section === "trade") {
-
-      document
-        .getElementById("tradePanel")
-        .scrollIntoView({
-          behavior: "smooth"
-        });
-
-      return;
-
-    }
-
-
-    if (section === "orders") {
-
-      document
-        .querySelector(".bottom")
-        .scrollIntoView({
-          behavior: "smooth"
-        });
-
-      return;
-
-    }
-
-
-    if (section === "assets") {
-
-      showBottom("assets", null);
-
-      document
-        .querySelector(".bottom")
-        .scrollIntoView({
-          behavior: "smooth"
-        });
-
-    }
+    $("bottomContent").innerHTML =
+      "Unable to load trade history.";
 
   }
 
+}
 
-  function scrollToTrade() {
+function renderAssets(){
+
+  if(!balances.length){
+
+    $("bottomContent").innerHTML =
+      `
+      <div class="info-box">
+        No assets found.
+      </div>
+      `;
+
+    return;
+
+  }
+
+  $("bottomContent").innerHTML = `
+
+    <div class="info-box">
+
+      <strong>VELTRIX Wallet</strong><br>
+
+      Balances shown here are internal
+      exchange ledger balances.
+
+      <br><br>
+
+      Blockchain deposits and withdrawals
+      are not enabled until wallet/network
+      infrastructure is connected.
+
+    </div>
+
+    <table class="table">
+
+      <thead>
+
+        <tr>
+          <th>Asset</th>
+          <th>Available</th>
+          <th>Locked</th>
+          <th>Total</th>
+        </tr>
+
+      </thead>
+
+      <tbody>
+
+        ${balances.map(balance => {
+
+          const available =
+            Number(
+              balance.available || 0
+            );
+
+          const locked =
+            Number(
+              balance.locked || 0
+            );
+
+          return `
+
+            <tr>
+
+              <td>
+                <strong>
+                  ${escapeHtml(
+                    balance.symbol
+                  )}
+                </strong>
+              </td>
+
+              <td>
+                ${formatNumber(
+                  available
+                )}
+              </td>
+
+              <td>
+                ${formatNumber(
+                  locked
+                )}
+              </td>
+
+              <td>
+                ${formatNumber(
+                  available + locked
+                )}
+              </td>
+
+            </tr>
+
+          `;
+
+        }).join("")}
+
+      </tbody>
+
+    </table>
+
+  `;
+
+}
+
+/* =========================================================
+   MOBILE
+========================================================= */
+
+function mobileSection(section){
+
+  if(section === "trade"){
 
     $("tradePanel")
       .scrollIntoView({
-        behavior: "smooth"
+        behavior:"smooth"
+      });
+
+    return;
+
+  }
+
+  if(section === "orders"){
+
+    document
+      .querySelector(".bottom")
+      .scrollIntoView({
+        behavior:"smooth"
+      });
+
+    return;
+
+  }
+
+  if(section === "assets"){
+
+    showBottom(
+      "assets",
+      null
+    );
+
+    document
+      .querySelector(".bottom")
+      .scrollIntoView({
+        behavior:"smooth"
       });
 
   }
 
+}
 
-  /* =========================
-     SEARCH
-  ========================= */
+function scrollToTrade(){
 
-  $("marketSearch")
-    .addEventListener(
-      "input",
-      function () {
+  $("tradePanel")
+    .scrollIntoView({
+      behavior:"smooth"
+    });
 
-        const query =
-          this.value
-            .toUpperCase()
-            .trim();
+}
 
-        if (!query) return;
+function showMarketArea(){
 
-        const found =
-          pairs.find(pair =>
+  window.scrollTo({
+    top:0,
+    behavior:"smooth"
+  });
+
+}
+
+/* =========================================================
+   SEARCH
+========================================================= */
+
+$("marketSearch")
+  .addEventListener(
+    "input",
+    function(){
+
+      const query =
+        this.value
+          .toUpperCase()
+          .trim();
+
+      if(!query){
+        return;
+      }
+
+      const found =
+        pairs.find(
+          pair =>
             pair.includes(query)
-          );
+        );
 
-        if (found) {
+      if(found){
 
-          currentPair = found;
-
-          updatePairUI();
-
-          loadOrderBook();
-
-        }
+        selectPair(found);
 
       }
-    );
 
+    }
+  );
 
-  /* =========================
-     SECURITY
-  ========================= */
+/* =========================================================
+   RESIZE
+========================================================= */
 
-  function escapeHtml(value) {
+window.addEventListener(
+  "resize",
+  drawChart
+);
 
-    return String(value ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+/* =========================================================
+   AUTO REFRESH
+========================================================= */
 
-  }
+setInterval(
+  async () => {
 
+    await Promise.all([
+      loadOrderBook(),
+      loadMarket()
+    ]);
 
-  /* =========================
-     INITIALIZE
-  ========================= */
+  },
+  3000
+);
 
-  async function initialize() {
+setInterval(
+  async () => {
 
-    createMarketButtons();
+    await loadCandles();
 
-    updatePairUI();
+  },
+  10000
+);
 
-    await loadUser();
+setInterval(
+  async () => {
 
-    await loadOrderBook();
+    if(currentUser){
 
-    setInterval(
-      loadOrderBook,
-      3000
-    );
+      await loadBalances();
 
-    setInterval(
-      async () => {
+      /*
+        Don't force bottom tab to change.
+        Just refresh current data when needed.
+      */
 
-        if (currentUser) {
+    }
 
-          await loadBalances();
+  },
+  5000
+);
 
-          await loadOrders();
+/* =========================================================
+   INITIALIZE
+========================================================= */
 
-        }
+async function initialize(){
 
-      },
-      5000
-    );
+  createMarketButtons();
 
-  }
+  updatePairUI();
 
+  await loadUser();
 
-  initialize();
+  await Promise.all([
+    loadOrderBook(),
+    loadMarket(),
+    loadCandles()
+  ]);
+
+}
+
+initialize();
 
 </script>
 
 </body>
-</html>
+  </html>
